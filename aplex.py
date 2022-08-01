@@ -2,7 +2,7 @@ from enum import Enum, auto
 from typing import List, Union
 
 alpha = '_abcdefghijklmnopqrstuvwxyz∆ABCDEFGHIJKLMNOPQRSTUVWXYZ⍙ÁÂÃÇÈÊËÌÍÎÏÐÒÓÔÕÙÚÛÝþãìðòõÀÄÅÆÉÑÖØÜßàáâäåæçèéêëíîïñóôöøùúûü'
-funs = '⎕[]{}⋄!&*+,-./<=>?\\^|~×÷←↑→↓∊∣∧∨∩∪≠≡≢≤≥⊂⊃⊆⊖⊢⊣⊤⊥⌈⌊⌶⌷⌽⍉⍋⍎⍒⍕⍟⍪⍬⍱⍲⍳⍴⍷⍸○'
+funs = '⎕[]{}!&*+,-./<=>?\\^|~×÷↑→↓∊∣∧∨∩∪≠≡≢≤≥⊂⊃⊆⊖⊢⊣⊤⊥⌈⌊⌶⌷⌽⍉⍋⍎⍒⍕⍟⍪⍬⍱⍲⍳⍴⍷⍸○'
 ops = '@⌸⌹⌺⍠⌿⍀∘⍠⍣⍤⍥⍨¨'
 
 class TokenType(Enum):
@@ -16,6 +16,8 @@ class TokenType(Enum):
     EOF = auto()
     LPAREN = auto()
     RPAREN = auto()
+    DIAMOND = auto()
+    GETS = auto()
     SINGLEQUOTE = auto()
 
 class UnexpectedToken(Exception):
@@ -129,6 +131,16 @@ class Tokeniser:
 
             if hd in alpha:
                 tokens.append(self.getname())
+                continue
+
+            if hd == "⋄":
+                tokens.append(Token(TokenType.DIAMOND, hd))
+                self.pos += 1
+                continue
+
+            if hd == "←":
+                tokens.append(Token(TokenType.GETS, hd))
+                self.pos += 1
                 continue
 
             if hd == "(":

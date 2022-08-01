@@ -3,38 +3,58 @@ from typing import List, Optional, Union, TypeAlias
 from aplex import Token
 
 class NodeType(Enum):
+    GETS = auto()
+    ID = auto()
     MOP = auto()
     DOP = auto()
-    DYAD = auto()
-    MONAD = auto()
+    FUN = auto()
+    DYADIC = auto()
+    MONADIC = auto()
     ARRAY = auto()
     SCALAR = auto()
+    CHUNK = auto()
 
-Branch: TypeAlias = Optional[Union[List['Node'], 'Node']]
+NodeList: TypeAlias = List['Node']
 
 class Node:
-    def __init__(self, kind: NodeType, tok: Optional[Token], lhs: Branch, rhs: Branch):
+    def __init__(self, kind: NodeType, tok: Optional[Token], children: Optional[NodeList] = None):
         self.kind = kind
         self.main_token = tok
-        self.lhs = lhs
-        self.rhs = rhs
+        self.children = children
+
+    def add(self, node: 'Node') -> None:
+        if self.children is None:
+            self.children = [node]
+        else:
+            self.children.append(node)
 
     def __str__(self):
         if self.kind == NodeType.SCALAR:
-            return f"S('{self.main_token.tok}')"
-        if self.kind == NodeType.DYAD:
-            return f"D('{self.main_token.tok}', {self.lhs}, {self.rhs})"
-        if self.kind == NodeType.MONAD:
-            return f"M('{self.main_token.tok}', {self.rhs})"
+            return f"SCALAR({self.main_token.tok})"
+        if self.kind == NodeType.FUN:
+            return f"FUN({self.main_token.tok})"
+        if self.kind == NodeType.ID:
+            return f"ID('{self.main_token.tok}')"
+        if self.kind == NodeType.DYADIC:
+            return f"DYADIC({self.children[0]}, {self.children[1]}, {self.children[2]})"
+        if self.kind == NodeType.GETS:
+            return f"GETS({self.children[0]}, {self.children[1]})"
+        if self.kind == NodeType.MONADIC:
+            return f"MONADIC({self.children[0]}, {self.children[1]})"
         if self.kind == NodeType.DOP:
-            return f"_D_('{self.main_token.tok}', {self.lhs}, {self.rhs})"
+            return f"DOP('{self.main_token.tok}', {self.children[0]}, {self.children[1]})"
         if self.kind == NodeType.MOP:
-            return f"_M('{self.main_token.tok}', {self.lhs}, {self.rhs})"
+            return f"MOP('{self.main_token.tok}', {self.children[0]})"
         if self.kind == NodeType.ARRAY:
-            body = ''
-            for sc in self.lhs:
-                body += str(sc) + ", "
-            return f"A({body})"
+            body = []
+            for sc in self.children:
+                body.append(str(sc))
+            return f"ARRAY({', '.join(body)})"
+        if self.kind == NodeType.CHUNK:
+            body = []
+            for sc in self.children:
+                body.append(str(sc))
+            return f"[{', '.join(body)}]"
             
 
 
