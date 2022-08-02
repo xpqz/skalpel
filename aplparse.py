@@ -53,7 +53,7 @@ class Parser:
         self.expect_token(TokenType.EOF)
         return chunk
 
-    def parse_statements(self) -> List[Node]:
+    def parse_statements(self) -> List[Node]: # Something to ponder: should a statement list be reversed?
         statements = [self.parse_statement()]
         while self.token().kind == TokenType.DIAMOND:
             self.eat_token()
@@ -89,11 +89,13 @@ class Parser:
 
     def parse_array(self) -> Node:
         nodes = []
-        while self.token().kind in ARRAY_START:
-            if self.token().kind == TokenType.RPAREN:
+        while (kind := self.token().kind) in ARRAY_START:
+            if kind == TokenType.RPAREN:
                 self.expect_token(TokenType.RPAREN)
                 nodes.append(self.parse_statement())
                 self.expect_token(TokenType.LPAREN)
+            elif kind == TokenType.NAME:
+                nodes.append(self.parse_identifier())
             else:
                 nodes.append(self.parse_scalar())
         if len(nodes) == 1:

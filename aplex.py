@@ -1,4 +1,5 @@
 from enum import Enum, auto
+from string import ascii_letters
 from typing import List, Union
 
 alpha = '_abcdefghijklmnopqrstuvwxyz∆ABCDEFGHIJKLMNOPQRSTUVWXYZ⍙ÁÂÃÇÈÊËÌÍÎÏÐÒÓÔÕÙÚÛÝþãìðòõÀÄÅÆÉÑÖØÜßàáâäåæçèéêëíîïñóôöøùúûü'
@@ -10,7 +11,6 @@ class TokenType(Enum):
     SCALAR = auto()
     OPERAND  = auto()
     ARGUMENT = auto()
-    SYSTEM = auto()
     FUN = auto()
     OP = auto()
     EOF = auto()
@@ -39,7 +39,9 @@ class Tokeniser:
 
     def getname(self) -> Token:
         tok = ''
-        start = self.pos
+        if self.chunk[self.pos] == '⎕': # System variables and constants, like ⎕IO
+            tok = '⎕'
+            self.pos += 1
         while self.pos < len(self.chunk) and (self.chunk[self.pos] in alpha or self.chunk[self.pos].isdigit()):
             tok += self.chunk[self.pos]
             self.pos += 1
@@ -112,28 +114,21 @@ class Tokeniser:
                 tokens.append(self.getargoper())
                 continue
 
-            if hd == '⎕':  # system variable or function
-                if self.peek() in alpha:
-                    # e.g. ⎕IO
-                    self.pos += 1
-                    tokens.append(Token(TokenType.SYSTEM, '⎕' + str(self.getname())))
-                    continue
-
-            if hd in funs:
-                tokens.append(Token(TokenType.FUN, hd))
-                self.pos += 1
-                continue
-
             if hd in ops:
                 tokens.append(Token(TokenType.OP, hd))
                 self.pos += 1
                 continue
 
-            if hd in alpha:
+            if hd in alpha or (hd == '⎕' and self.peek() in ascii_letters):  # Name
                 tokens.append(self.getname())
                 continue
 
-            if hd == "⋄":
+            if hd in funs: # Note: must come after the name check, as ⎕ can be both function and name
+                tokens.append(Token(TokenType.FUN, hd))
+                self.pos += 1
+                continue
+
+            if hd in "⋄\n":
                 tokens.append(Token(TokenType.DIAMOND, hd))
                 self.pos += 1
                 continue

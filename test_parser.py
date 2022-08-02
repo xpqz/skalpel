@@ -25,5 +25,18 @@ class TestAPLParser:
         parser = Parser()
         ast = parser.parse(src)
         print(ast)
+
+    def test_diamond(self):
+        src = "v←⍳99 ⋄ s←+/v"
+        parser = Parser()
+        ast = parser.parse(src)
+        print(ast)
+
+    def test_sys(self):
+        src = "⎕IO←0"
+        parser = Parser()
+        ast = parser.parse(src)
+        print(ast)
+    
     
     
