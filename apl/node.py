@@ -1,6 +1,6 @@
 from enum import Enum, auto
-from typing import List, Optional, Union, TypeAlias
-from aplex import Token
+from typing import Optional, TypeAlias
+from apl.tokeniser import Token
 
 class NodeType(Enum):
     GETS = auto()
@@ -10,11 +10,11 @@ class NodeType(Enum):
     FUN = auto()
     DYADIC = auto()
     MONADIC = auto()
-    ARRAY = auto()
+    VECTOR = auto()
     SCALAR = auto()
     CHUNK = auto()
 
-NodeList: TypeAlias = List['Node']
+NodeList: TypeAlias = list['Node'] # type: ignore
 
 class Node:
     def __init__(self, kind: NodeType, tok: Optional[Token], children: Optional[NodeList] = None):
@@ -45,16 +45,16 @@ class Node:
             return f"DOP('{self.main_token.tok}', {self.children[0]}, {self.children[1]})"
         if self.kind == NodeType.MOP:
             return f"MOP('{self.main_token.tok}', {self.children[0]})"
-        if self.kind == NodeType.ARRAY:
+        if self.kind == NodeType.VECTOR:
             body = []
             for sc in self.children:
                 body.append(str(sc))
-            return f"ARRAY({', '.join(body)})"
+            return f"VEC[{', '.join(body)}]"
         if self.kind == NodeType.CHUNK:
             body = []
             for sc in self.children:
                 body.append(str(sc))
-            return f"[{', '.join(body)}]"
+            return f"CHNK[{', '.join(body)}]"
             
 
 

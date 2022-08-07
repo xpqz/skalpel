@@ -1,7 +1,6 @@
-from aplex import Tokeniser, TokenType
-# import inspect
+from apl.tokeniser import Tokeniser, TokenType
 
-class TestAPLex:
+class TestTokeniser:
     def test_system_variable(self):
         src = "⎕IO←0"
         tokeniser = Tokeniser(src)

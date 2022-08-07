@@ -1,0 +1,41 @@
+from copy import deepcopy
+from itertools import islice
+from math import prod
+from typing import Iterable, Iterator, Optional, TypeVar, Generic, List
+
+T = TypeVar('T')
+
+class RankError(Exception):
+    pass
+
+class Array(Generic[T]):
+    def __init__(self, shape: List[int], data: List[T]):
+        self.shape = shape
+        count = prod(shape)
+        d = deepcopy(data)
+        if count <= len(d):
+            self.data = d[:count]
+        else:
+            self.data = [d[idx%len(d)] for idx in range(count)]
+
+    def rank(self) -> int:
+        return len(self.shape)
+
+    def disp(self) -> None:
+        data = self.data
+        for axis in reversed(self.shape):
+            data = chunk(data, axis)
+        p(data)
+
+def p(data):
+    if isinstance(data[0], list):
+        for sublist in data:
+            p(sublist)
+            print()
+    else:
+        print(" ".join(map(str, data)), end='')
+
+def chunk(it, size: int):
+    it = iter(it)
+    return list(map(list, iter(lambda: tuple(islice(it, size)), ())))
+    

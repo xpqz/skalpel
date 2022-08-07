@@ -1,18 +1,16 @@
 from enum import Enum, auto
 from string import ascii_letters
-from typing import List, Union
 
 alpha = '_abcdefghijklmnopqrstuvwxyz∆ABCDEFGHIJKLMNOPQRSTUVWXYZ⍙ÁÂÃÇÈÊËÌÍÎÏÐÒÓÔÕÙÚÛÝþãìðòõÀÄÅÆÉÑÖØÜßàáâäåæçèéêëíîïñóôöøùúûü'
 funs = '⎕[]{}!&*+,-./<=>?\\^|~×÷↑→↓∊∣∧∨∩∪≠≡≢≤≥⊂⊃⊆⊖⊢⊣⊤⊥⌈⌊⌶⌷⌽⍉⍋⍎⍒⍕⍟⍪⍬⍱⍲⍳⍴⍷⍸○'
-ops = '@⌸⌹⌺⍠⌿⍀∘⍠⍣⍤⍥⍨¨'
+
+operators = '@⌸⌹⌺⍠⌿⍀∘⍠⍣⍤⍥⍨¨'
 
 class TokenType(Enum):
     NAME = auto()
     SCALAR = auto()
-    OPERAND  = auto()
-    ARGUMENT = auto()
     FUN = auto()
-    OP = auto()
+    OPERATOR = auto()
     EOF = auto()
     LPAREN = auto()
     RPAREN = auto()
@@ -25,7 +23,7 @@ class UnexpectedToken(Exception):
 
 class Token:
 
-    def __init__(self, kind: TokenType, tok: Union[str, int, float]):
+    def __init__(self, kind: TokenType, tok: str|int|float):
         self.kind = kind
         self.tok = tok
 
@@ -75,14 +73,8 @@ class Tokeniser:
             return self.chunk[self.pos+1]
         except IndexError:
             return ''
-        
-    def getargoper(self) -> Token:
-        tok = self.chunk[self.pos]
-        if self.peek() == tok:
-            return Token(TokenType.OPERAND, tok+tok)
-        return Token(TokenType.ARGUMENT, tok)
 
-    def lex(self) -> List[Token]:
+    def lex(self) -> list[Token]:
         tokens = [Token(TokenType.EOF, '<EOF>')]
         while self.pos < len(self.chunk):
             hd = self.chunk[self.pos]
@@ -110,12 +102,8 @@ class Tokeniser:
                 tokens.append(self.getnum())
                 continue
 
-            if hd in '⍺⍵':
-                tokens.append(self.getargoper())
-                continue
-
-            if hd in ops:
-                tokens.append(Token(TokenType.OP, hd))
+            if hd in operators:
+                tokens.append(Token(TokenType.OPERATOR, hd))
                 self.pos += 1
                 continue
 
