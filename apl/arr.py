@@ -16,6 +16,8 @@ class NYIError(Exception):
 class RankError(Exception):
     pass
 
+class ValueError(Exception):
+    pass
 
 class Array:
     def __init__(self, shape: list[int], data: Union[list[SimpleScalar],'Array', SimpleScalar]) -> None:
@@ -31,7 +33,7 @@ class Array:
         
     def __str__(self):
         if self.rank == 0:
-            return str(self.data)
+            return str(self.data[0])
         if self.rank == 1:
             return f"Vector({self.data})"
         return f"Array({self.shape}, {self.data})"
@@ -53,7 +55,7 @@ def Vector(data: list[SimpleScalar]) -> Array:
     return Array([len(data)], data)
 
 def Scalar(data: SimpleScalar) -> Array:
-    return Array([], data)
+    return Array([], [data])
 
 def enclose(a: Array) -> Array:
     if not a.shape and not isinstance(a.data, Array): # Simple scalar
@@ -166,8 +168,8 @@ def select(arr: Array, cells: Optional[list[int]] = None) -> Array:
     if newshape[0] == 1:
         newshape = newshape[1:]
 
-    if not newshape:
-        return Scalar(selection[0])
+    # if not newshape:
+    #     return Scalar(selection[0])
     
     return Array(newshape, selection) # type: ignore
 

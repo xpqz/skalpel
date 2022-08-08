@@ -12,7 +12,7 @@ class TestSelect:
         data = Vector([1, 2, 3, 4])
         s = select(data, [1])
         assert s.rank == 0
-        assert s.data == 2
+        assert s.data == [2]
 
     def test_select_multiple_scalars(self):
         data = Vector([1, 2, 3, 4])

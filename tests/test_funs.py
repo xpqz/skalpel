@@ -1,6 +1,6 @@
 from math import prod
-from apl.funs import transpose, squad
-from apl.arr import Array, Vector, select
+from apl.funs import transpose, squad, rho, apply_scalar
+from apl.arr import Array, Vector, Scalar
 
 class TestTranspose:
     def test_monadic_transpose_empty(self):
@@ -48,7 +48,7 @@ class TestSquad:
         data = Array([2, 2], [1, 2, 3, 4])
         a = squad(alpha=cells, omega=data)
         assert a.rank == 0
-        assert a.data == 4
+        assert a.data == [4]
         
     def test_squad_higher_rank(self):
         cells = Vector([1, 2])
@@ -57,3 +57,22 @@ class TestSquad:
         assert a.rank == 1
         assert a.data == [20, 21, 22, 23]
     
+class TestRho:
+    def test_reshape_matrix(self):
+        reshaped = rho(alpha=Vector([5, 5]), omega=Array([3, 3], [3, 2, 0, 8, 6, 5, 4, 7, 1])).data
+        assert reshaped == [3, 2, 0, 8, 6, 5, 4, 7, 1, 3, 2, 0, 8, 6, 5, 4, 7, 1, 3, 2, 0, 8, 6, 5, 4]
+
+    def test_reshape_scalar(self):
+        reshaped = rho(alpha=Vector([2, 2]), omega=Scalar(5)).data
+        assert reshaped == [5, 5, 5, 5]
+
+    def test_monadic(self):
+        shape = rho(omega=Array([2, 2], [1, 2, 3, 4])).data
+        assert shape == [2, 2]
+
+class TestApplyScalar:
+    def test_sum_scalars(self):
+        assert apply_scalar(Scalar(5), Scalar(7), '+').data == [12]
+
+    def test_sum_arrays(self):
+        assert [4, 4, 4, 4] == apply_scalar(Array([2, 2], [1, 2, 3, 4]), Array([2, 2], [3, 2, 1, 0]), '+').data

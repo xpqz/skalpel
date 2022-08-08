@@ -13,16 +13,54 @@ To run the doctests, do:
     python funs.py [-v]
 """
 from collections import defaultdict
+from itertools import chain
 from math import prod
-from typing import Optional
+from typing import Callable, Optional
 
 from apl.arr import Array, NYIError, RankError, LengthError, Scalar, Vector, coords, decode, enclose, select, SimpleScalar
 
-class RankError(Exception):
-    pass
+SCALAR_DYADS = {
+    '+': lambda x, y: x+y,
+    '-': lambda x, y: x-y,
+    '⌊': lambda x, y: min(x, y),
+    '⌈': lambda x, y: max(x, y),
+    '×': lambda x, y: x*y,
+    '÷': lambda x, y: x/y,
+    '<': lambda x, y: int(x<y),
+    '>': lambda x, y: int(x>y),
+    '=': lambda x, y: int(x==y),
+    '≥': lambda x, y: int(x>=y),
+    '≤': lambda x, y: int(x<=y),
+    '≠': lambda x, y: int(x!=y),
+}
 
-def rotate_first(alpha: list[int], omega: Array) -> Array:
-    pass
+def apply_scalar(alpha: Array, omega: Array, fn: str) -> Array:
+    """
+    A f B
+
+    Won't work for nested arrays yet.
+
+    >>> apply_scalar(Scalar(5), Scalar(7), '+')
+    12
+
+    >>> apply_scalar(Array([2, 2], [1, 2, 3, 4]), Array([2, 2], [3, 2, 1, 0]), '+').data
+    [4, 4, 4, 4]
+    """
+    if fn not in SCALAR_DYADS:
+        raise NYIError(f"dyad '{fn}' not yet implemented")
+    
+    f = SCALAR_DYADS[fn]
+
+    if alpha.rank == 0 or omega.rank == 0: # Pervade. Note: won't drill into nested.
+        if alpha.rank > 0:
+            return Array(alpha.shape, [f(alpha.data[i], omega.data[0]) for i in range(alpha.bound)])
+        return Array(omega.shape, [f(omega.data[i], alpha.data[0]) for i in range(omega.bound)])
+
+    if alpha.rank != omega.rank:
+        raise RankError("Mismatched left and right argument ranks")
+
+    return Array(alpha.shape, [f(alpha.data[i], omega.data[i]) for i in range(alpha.bound)])
+
 
 def rho(*, alpha: Optional[Array] = None, omega: Array) -> Array:
     """
@@ -49,10 +87,12 @@ def rho(*, alpha: Optional[Array] = None, omega: Array) -> Array:
     if alpha.rank > 1:
         raise RankError
 
-    # Dyadic. Omega can be a scalar, so we need to ensure that we extend that
-    data = [omega.data] if omega.rank == 0 else omega.data
+    # Dyadic
+    data = [omega.data[idx%len(omega.data)] for idx in range(prod(alpha.data))]
+    if isinstance(data[0], list): # flatten if we're reshaping a scalar
+        data = list(chain(*data))
 
-    return Array(alpha.data, [data[idx%len(data)] for idx in range(prod(alpha.data))])
+    return Array(alpha.data, data)
 
 
 def _reorder_axes(spec:list[int], coords:list[int]) -> list[int]:
@@ -201,11 +241,13 @@ def iota(*, alpha: Optional[Array]=None, omega: Array, IO: int = 0) -> Array:
     [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]]
     """
     if alpha is not None:
-        raise NYIError
+        raise NYIError('dyadic ⍳ not yet implemented')
+    
+    if omega.rank == 0:
+        return Vector(list(range(IO, omega.data[0]+IO)))
 
     shape = omega.data
-    if omega.rank == 0:
-        return Vector(list(range(IO, shape+IO)))
+
     return Array(shape, [Vector(cvec) for cvec in coords(shape, IO)])
 
 def drop(*, alpha: int, omega: Array) -> Array:
