@@ -29,7 +29,7 @@ class TestParser:
         src = "v←⍳99 ⋄ s←+⌿v"
         parser = Parser()
         ast = parser.parse(src)
-        assert "CHNK[GETS(ID('s'), MONADIC(MOP('⌿', FUN(+)), ID('v'))), GETS(ID('v'), MONADIC(FUN(⍳), SCALAR(99)))]" == str(ast)
+        assert "CHNK[GETS(ID('v'), MONADIC(FUN(⍳), SCALAR(99))), GETS(ID('s'), MONADIC(MOP('⌿', FUN(+)), ID('v')))]" == str(ast)
 
     def test_sys(self):
         src = "⎕IO←0"

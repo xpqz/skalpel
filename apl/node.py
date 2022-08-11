@@ -154,6 +154,7 @@ class Node:
 
     def emit(self) -> Optional[list]:
         if self.kind == NodeType.CHUNK:
+            Node.code = []
             return self.emit_chunk()
         elif self.kind == NodeType.DYADIC:
             self.emit_dyadic_call()

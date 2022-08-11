@@ -58,12 +58,14 @@ def apply_scalar(alpha: Array, omega: Array, fn: str) -> Array:
     [4, 4, 4, 4]
     """
     try:
-        f: Signature = FUNS[fn]
+        sig: Signature = FUNS[fn]
     except:
         raise NYIError(f"'{fn}' not yet implemented")
 
-    if f[1] is None:
+    if sig[1] is None:
         raise ArityError("should be dyadic")
+    
+    f = sig[1]
     
     if alpha.rank == 0 or omega.rank == 0: # Pervade. Note: won't drill into nested.
         if alpha.rank > 0:

@@ -1,24 +1,19 @@
 from apl.arr import Array, Vector
-from apl.ops import reduce
+from apl.ops import reduce_first, reduce
 
 class TestReduce:
     def test_reduce_first(self):
-        a = reduce(Array([2, 2], [1, 2, 3, 4]), 0, lambda x, y:x+y).data
-        assert a == [4, 6]
+        a = reduce_first('+', None, None, Array([2, 2], [1, 2, 3, 4]))
+        assert a.data == [4, 6]
 
     def test_reduce_last(self):
-        a = reduce(Array([2, 2], [1, 2, 3, 4]), 1, lambda x, y:x+y).data
-        assert a == [3, 7]
+        a = reduce('+', None, None, Array([2, 2], [1, 2, 3, 4]))
+        assert a.data == [3, 7]
 
     def test_reduce_vector(self):
-        a = reduce(Vector([1, 2, 3, 4]), 0, lambda x, y:x+y).data
-        assert a == [10]
+        a = reduce('+', None, None, Vector([1, 2, 3, 4]))
+        assert a.data == [10]
 
     def test_reduce_vector_non_assoc(self):
-        a = reduce(Vector([1, 2, 3, 4]), 0, lambda x, y:x-y).data
-        assert a == [-2]
-
-    def test_reduce_vector_builtin(self):
-        a = reduce(Vector([1, 2, 3, 4]), 0, '+').data
-        assert a == [10]
-
+        a = reduce('-', None, None, Vector([1, 2, 3, 4]))
+        assert a.data == [-2]
