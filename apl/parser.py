@@ -1,12 +1,10 @@
+from apl.errors import UnexpectedToken
 from apl.node import Node, NodeType
 from apl.tokeniser import Token, Tokeniser, TokenType
 
 SCALARS = [TokenType.SCALAR, TokenType.NAME]
 DYADIC_OPS = set('⍥@⍣⍤∘.⌺⍠')
 MONADIC_OPS = set('⌿⍀¨⍨')
-
-class UnexpectedToken(Exception):
-    pass
 
 class Parser:
     """
@@ -63,7 +61,8 @@ class Parser:
         while self.token().kind == TokenType.DIAMOND:
             self.eat_token()
             statements.append(self.parse_statement())
-        return statements
+        # return statements
+        return statements[::-1] # NOTE: statements separated by diamond should be interpreted top to bottom
 
     def parse_statement(self) -> Node:
         """

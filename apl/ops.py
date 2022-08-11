@@ -11,15 +11,81 @@ To run the doctests, do:
 
     python ops.py [-v]
 """
-from collections import defaultdict
+from dataclasses import dataclass
 from math import prod
-from typing import Callable
+from typing import Callable, Optional
 
-from apl.arr import Array, RankError, Scalar, ValueError
-from apl.funs import SCALAR_DYADS
+from apl.arr import Array, RankError, Scalar
+from apl.errors import ArityError, ValueError
+from apl.funs import FUNS, Arity
 
-def reduce(omega: Array, axis: int, f: Callable|str) -> Array:
+
+@dataclass(frozen=True)
+class Operator:
+    f: Callable
+    derives: Arity                  # Arity of derived function
+    arity: Arity                    # Am I a monadic or a dyadic operator?
+    left: Arity                     # Arity of left operand
+    right: Optional[Arity] = None   # Arity of right operand, if I am dyadic
+
+
+def derive(operator: Callable, left: Callable|str, right: Optional[Callable|str], arity: Arity) -> Callable:
+    if arity == Arity.MONAD:
+        def derived_monad(omega: Array) -> Array:
+            return operator(left, right, None, omega)
+        return derived_monad
+    def derived_dyad(alpha: Array, omega: Array) -> Array:
+        return operator(left, right, alpha, omega)
+    return derived_dyad
+
+def commute(left: Callable, right: Optional[Callable], alpha: Array, omega: Array) -> Array:
     """
+    Outward-facing 'A f⍨ B' (commute)
+    """
+    if right is not None:
+        raise ArityError("'⍨' takes no right operand")
+
+    return left(omega, alpha) # swap argument order
+
+def over(left: Callable, right: Optional[Callable], alpha: Array, omega: Array) -> Array:
+    """
+    Outward-facing '⍥'
+    """
+    if right is None:
+        raise ArityError("'⍥' takes a right operand")
+
+    return left(right(alpha), right(omega))
+
+def reduce(left: Callable|str, right: Optional[Callable|str], alpha: Optional[Array], omega: Array) -> Array:
+    """
+    Outward-facing '/' (trailling axis reduce)
+    """
+    if right is not None:
+        raise ArityError("'/' takes no right operand")
+
+    if alpha is not None:
+        raise ArityError("function derived by '/' takes no left argument")
+
+    return _reduce(operand=left, axis=omega.rank-1, omega=omega)
+
+
+def reduce_first(left: Callable|str, right: Optional[Callable|str], alpha: Optional[Array], omega: Array) -> Array:
+    """
+    Outward-facing '⌿' (leading axis reduce)
+    """
+    if right is not None:
+        raise ArityError("'⌿' takes no right operand")
+
+    if alpha is not None:
+        raise ArityError("function derived by '⌿' takes no left argument")
+
+    return _reduce(operand=left, axis=0, omega=omega)
+
+
+def _reduce(*, operand: Callable|str, axis: int, omega: Array) -> Array:
+    """
+    [private]
+
     Reduction along axis. 
     
     Originally by @ngn: 
@@ -29,10 +95,10 @@ def reduce(omega: Array, axis: int, f: Callable|str) -> Array:
     A version also used in dzaima/apl:
        * https://github.com/dzaima/APL/blob/master/src/APL/types/functions/builtins/mops/ReduceBuiltin.java#L156-L178
 
-    >>> reduce(Array([2, 2], [1, 2, 3, 4]), 0, lambda x, y:x+y).data
+    >>> _reduce(operand=lambda x, y:x+y, axis=0, omega=Array([2, 2], [1, 2, 3, 4])).data
     [4, 6]
 
-    >>> reduce(Array([2, 2], [1, 2, 3, 4]), 1, lambda x, y:x+y).data
+    >>> _reduce(operand:lambda x, y:x+y, axis=1, omega=Array([2, 2], [1, 2, 3, 4])).data
     [3, 7]
     """
     if omega.rank == 0:
@@ -43,16 +109,18 @@ def reduce(omega: Array, axis: int, f: Callable|str) -> Array:
     if axis >= omega.rank:
         raise RankError
 
-    if isinstance(f, str):
-        if f not in SCALAR_DYADS:
-            raise ValueError(f"VALUE ERROR: Undefined name: '{str}'")
-        fn = SCALAR_DYADS[f]
+    if isinstance(operand, str):
+        if operand not in FUNS:
+            raise ValueError(f"VALUE ERROR: Undefined operand: '{operand}'")
+        fn = FUNS[operand][1]
+        if fn is None:
+            raise ArityError(f"function {operand} must be dyadic")
     else:
-        fn = f
+        fn = operand
 
     # Some vector + built-in special cases
-    if omega.rank == 1 and isinstance(f, str):
-        match f:
+    if omega.rank == 1 and isinstance(operand, str):
+        match operand:
             case '+':
                 return Scalar(sum(omega.data))
             case '×':
@@ -73,11 +141,19 @@ def reduce(omega: Array, axis: int, f: Callable|str) -> Array:
         for k in range(n2):
             acc = omega.data[i*n1*n2 + (n1-1)*n2 + k]
             for j in range(n1-2, -1, -1):     # R-L
-                acc = f(omega.data[i*n1*n2 + j*n2 + k], acc)
+                acc = fn(omega.data[i*n1*n2 + j*n2 + k], acc)
             ravel[i*n2 + k] = acc
 
     return Array(shape, ravel)
-    
+
+OPERATORS = {
+    #-------------implem--------derived-isa--self-isa-----L-isa-------R-isa
+    '/': Operator(reduce,       Arity.MONAD, Arity.MONAD, Arity.DYAD, None), 
+    '⌿': Operator(reduce_first, Arity.MONAD, Arity.MONAD, Arity.DYAD, None),
+    '⍨': Operator(commute,      Arity.DYAD,  Arity.MONAD, Arity.DYAD, None),
+    '⍥': Operator(over,         Arity.DYAD,  Arity.DYAD,  Arity.DYAD, Arity.MONAD)
+}
+
 if __name__ == "__main__":
     # To run the doctests (verbosely), do 
     #

@@ -1,6 +1,8 @@
 from enum import Enum, auto
 from string import ascii_letters
 
+from apl.errors import UnexpectedToken
+
 alpha = '_abcdefghijklmnopqrstuvwxyz∆ABCDEFGHIJKLMNOPQRSTUVWXYZ⍙ÁÂÃÇÈÊËÌÍÎÏÐÒÓÔÕÙÚÛÝþãìðòõÀÄÅÆÉÑÖØÜßàáâäåæçèéêëíîïñóôöøùúûü'
 funs = '⎕[]{}!&*+,-./<=>?\\^|~×÷↑→↓∊∣∧∨∩∪≠≡≢≤≥⊂⊃⊆⊖⊢⊣⊤⊥⌈⌊⌶⌷⌽⍉⍋⍎⍒⍕⍟⍪⍬⍱⍲⍳⍴⍷⍸○'
 
@@ -17,9 +19,6 @@ class TokenType(Enum):
     DIAMOND = auto()
     GETS = auto()
     SINGLEQUOTE = auto()
-
-class UnexpectedToken(Exception):
-    pass
 
 class Token:
 

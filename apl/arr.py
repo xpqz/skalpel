@@ -2,22 +2,9 @@ from itertools import chain
 from math import prod
 from typing import Any, Iterator, Optional, TypeAlias, Union
 
+from apl.errors import LimitError, RankError
+
 SimpleScalar: TypeAlias = int|float
-
-class LengthError(Exception):
-    pass
-
-class LimitError(Exception):
-    pass
-
-class NYIError(Exception):
-    pass
-
-class RankError(Exception):
-    pass
-
-class ValueError(Exception):
-    pass
 
 class Array:
     def __init__(self, shape: list[int], data: Union[list[SimpleScalar],'Array', SimpleScalar]) -> None:
@@ -46,7 +33,7 @@ class Array:
         4
         """
         if self.rank == 0:
-            raise RankError
+            raise RankError('cannot index scalars')
 
         idx = decode(self.shape, coords)
         return self.data[idx] # type: ignore

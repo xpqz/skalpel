@@ -13,25 +13,36 @@ To run the doctests, do:
     python funs.py [-v]
 """
 from collections import defaultdict
+from enum import Enum
 from itertools import chain
 from math import prod
-from typing import Callable, Optional
+from typing import Callable, Optional, TypeAlias
 
-from apl.arr import Array, NYIError, RankError, LengthError, Scalar, Vector, coords, decode, enclose, select, SimpleScalar
+from apl.arr import Array, Vector, coords, decode, select
+from apl.errors import ArityError, NYIError, RankError
 
-SCALAR_DYADS = {
-    '+': lambda x, y: x+y,
-    '-': lambda x, y: x-y,
-    '⌊': lambda x, y: min(x, y),
-    '⌈': lambda x, y: max(x, y),
-    '×': lambda x, y: x*y,
-    '÷': lambda x, y: x/y,
-    '<': lambda x, y: int(x<y),
-    '>': lambda x, y: int(x>y),
-    '=': lambda x, y: int(x==y),
-    '≥': lambda x, y: int(x>=y),
-    '≤': lambda x, y: int(x<=y),
-    '≠': lambda x, y: int(x!=y),
+Signature: TypeAlias = tuple[Optional[Callable], Optional[Callable]]
+
+class Arity(Enum):
+    MONAD=0
+    DYAD=1
+
+FUNS: dict[str, Signature] = { # Monadic, dyadic
+    '+': (None, lambda x, y: x+y),
+    '-': (None, lambda x, y: x-y),
+    '⌊': (None, lambda x, y: min(x, y)),
+    '⌈': (None, lambda x, y: max(x, y)),
+    '×': (None, lambda x, y: x*y),
+    '÷': (None, lambda x, y: x/y),
+    '<': (None, lambda x, y: int(x<y)),
+    '>': (None, lambda x, y: int(x>y)),
+    '=': (None, lambda x, y: int(x==y)),
+    '≥': (None, lambda x, y: int(x>=y)),
+    '≤': (None, lambda x, y: int(x<=y)),
+    '≠': (None, lambda x, y: int(x!=y)),
+    '⍳': (lambda x: iota(omega=x), None),
+    '⍴': (lambda x: rho(omega=x), None),
+    '≢': (lambda x: x.shape[0], None),
 }
 
 def apply_scalar(alpha: Array, omega: Array, fn: str) -> Array:
@@ -46,11 +57,14 @@ def apply_scalar(alpha: Array, omega: Array, fn: str) -> Array:
     >>> apply_scalar(Array([2, 2], [1, 2, 3, 4]), Array([2, 2], [3, 2, 1, 0]), '+').data
     [4, 4, 4, 4]
     """
-    if fn not in SCALAR_DYADS:
-        raise NYIError(f"dyad '{fn}' not yet implemented")
-    
-    f = SCALAR_DYADS[fn]
+    try:
+        f: Signature = FUNS[fn]
+    except:
+        raise NYIError(f"'{fn}' not yet implemented")
 
+    if f[1] is None:
+        raise ArityError("should be dyadic")
+    
     if alpha.rank == 0 or omega.rank == 0: # Pervade. Note: won't drill into nested.
         if alpha.rank > 0:
             return Array(alpha.shape, [f(alpha.data[i], omega.data[0]) for i in range(alpha.bound)])
