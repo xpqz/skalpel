@@ -30,7 +30,7 @@ class Node:
 
     def _mttok(self) -> str:
         if self.main_token is None or not isinstance(self.main_token.tok, str):
-            raise EmitError('expected a main_token of type str')
+            raise EmitError('EMIT ERROR: expected a main_token of type str')
         else:
             return self.main_token.tok
 
@@ -54,12 +54,12 @@ class Node:
 
     def emit_scalar(self) -> None:
         if self.main_token is None:
-            raise EmitError('main_token is undefined')
+            raise EmitError('EMIT ERROR: main_token is undefined')
         Node.code.append((INSTR.psh, self.main_token.tok))
 
     def emit_id(self) -> None:
         if self.main_token is None:
-            raise EmitError('main_token is undefined')
+            raise EmitError('EMIT ERROR: main_token is undefined')
         Node.code.append((INSTR.get, self.main_token.tok))
 
     def emit_derived_monad(self) -> Callable:
@@ -67,10 +67,10 @@ class Node:
         op = Voc.get_op(op_name)
 
         if self.children is None:
-            raise EmitError('node has no children')
+            raise EmitError('EMIT ERROR: node has no children')
     
         if op.derives != Arity.MONAD:
-            raise ArityError(f"operator '{op_name}' does not derive a monadic function")
+            raise ArityError(f"ARITY ERROR: operator '{op_name}' does not derive a monadic function")
 
         if op.left == Arity.MONAD:
             left = self.children[0].emit_monadic_function()
@@ -90,12 +90,12 @@ class Node:
     def emit_derived_dyad(self) -> Callable:
         op_name = self._mttok()
         if self.children is None:
-            raise EmitError('node has no children')
+            raise EmitError('EMIT ERROR: node has no children')
 
         op = Voc.get_op(op_name)
 
         if op.derives != Arity.DYAD:
-            raise ArityError(f"operator '{op_name}' does not derive a dyadic function")
+            raise ArityError(f"ARITY ERROR: operator '{op_name}' does not derive a dyadic function")
 
         if op.left == Arity.MONAD:
             left = self.children[0].emit_monadic_function()
@@ -114,7 +114,7 @@ class Node:
 
     def emit_monadic_call(self) -> None:
         if self.children is None:
-            raise EmitError('node has no children')
+            raise EmitError('EMIT ERROR: node has no children')
         assert self.children[0].kind in [NodeType.FUN, NodeType.MOP, NodeType.DOP]
         self.children[1].emit()
         if self.children[0].kind == NodeType.FUN:
@@ -126,7 +126,7 @@ class Node:
 
     def emit_dyadic_call(self) -> None:
         if self.children is None:
-            raise EmitError('node has no children')
+            raise EmitError('EMIT ERROR: node has no children')
         assert self.children[0].kind in [NodeType.FUN, NodeType.MOP, NodeType.DOP]
         self.children[1].emit()
         self.children[2].emit()
@@ -139,21 +139,21 @@ class Node:
 
     def emit_gets(self) -> None:
         if self.children is None:
-            raise EmitError('node has no children')
+            raise EmitError('EMIT ERROR: node has no children')
         assert self.children[0].kind == NodeType.ID
         self.children[1].emit()
         Node.code.append((INSTR.set, self.children[0]._mttok()))
 
     def emit_vector(self) -> None:
         if self.children is None:                     # NOTE we need to handle ⍬ somehow
-            raise EmitError('node has no children')
+            raise EmitError('EMIT ERROR: node has no children')
         for el in self.children:
             el.emit()
         Node.code.append((INSTR.vec, len(self.children)))
 
     def emit_chunk(self) -> list:
         if self.children is None:
-            raise EmitError('node has no children')  # NOTE this should bot be an error
+            raise EmitError('EMIT ERROR: node has no children')  # NOTE this should bot be an error
         for sc in self.children:
             sc.emit()
         return Node.code
@@ -175,7 +175,7 @@ class Node:
         elif self.kind == NodeType.VECTOR:
             self.emit_vector()
         else:
-            raise EmitError('Unknown node type')
+            raise EmitError('EMIT ERROR: Unknown node type')
         return None
 
     def __str__(self):

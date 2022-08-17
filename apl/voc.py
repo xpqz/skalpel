@@ -59,7 +59,7 @@ def commute(left: Callable|str, right: Optional[Callable|str], alpha: Array, ome
     Outward-facing 'A f⍨ B' (commute)
     """
     if right is not None:
-        raise ArityError("'⍨' takes no right operand")
+        raise ArityError("ARITY ERROR: '⍨' takes no right operand")
     
     fn = Voc.get_fn(left, Arity.DYAD)
 
@@ -292,12 +292,43 @@ def iota(alpha: Optional[Array], omega: Array, IO: int=0) -> Array:
     shape = omega.to_list()
     return A(shape, list(coords(shape, IO)))
 
+def rho(alpha: Optional[Array],  omega: Array) -> Array:
+    """
+    Monadic: shape
+    Dyadic: reshape
+
+    Apply the shape alpha to the ravel of omega. The rank of alpha must be 0 or 1
+
+    APL> ,5 5⍴3 3⍴3 2 0 8 6 5 4 7 1
+    3 2 0 8 6 5 4 7 1 3 2 0 8 6 5 4 7 1 3 2 0 8 6 5 4
+
+    >>> reshaped = rho([5, 5], A([3, 3], [3, 2, 0, 8, 6, 5, 4, 7, 1]))
+    >>> expected = A([5, 5], [3, 2, 0, 8, 6, 5, 4, 7, 1, 3, 2, 0, 8, 6, 5, 4, 7, 1, 3, 2, 0, 8, 6, 5, 4])
+    >>> match(reshaped, expected)
+    True
+
+    >>> reshaped = rho([2, 2], S(5))
+    >>> expected = A([2, 2], [5, 5, 5, 5])
+    >>> match(reshaped, expected)
+    True
+
+    >>> shape = rho([], A([2, 2], [1, 2, 3, 4]))
+    >>> match(shape, V([2, 2]))
+    True
+    """
+    if alpha is None: # Monadic
+        return V(omega.shape)
+
+    return A(alpha.to_list(), omega.data) # type: ignore
+
 class Voc:
     """
     Voc is the global vocabulary of built-in functions and operators. This class should not
     be instantiated.
     """
-    funs: dict[str, Signature] = { # Monadic, dyadic
+    funs: dict[str, Signature] = { 
+        #--- Monadic-------------------Dyadic----------------
+        '⍴': (lambda y: rho(None, y),  rho),
         '⍳': (lambda y: iota(None, y), None),
         '≢': (lambda y: S(y.shape[0]), match),
         '⌊': (None,                    pervade(min)),
@@ -324,10 +355,10 @@ class Voc:
             try:
                 sig = cls.funs[f]
             except KeyError:
-                raise ValueError(f"Undefined function: '{f}'")
+                raise ValueError(f"VALUE ERROR: Undefined function: '{f}'")
             fn = sig[arity.value]
             if fn is None:
-                raise ArityError(f"function '{f}' has no {['monadic', 'dyadic'][arity.value]} form")
+                raise ArityError(f"ARITY ERROR: function '{f}' has no {['monadic', 'dyadic'][arity.value]} form")
             return fn
         return f
 
@@ -339,36 +370,7 @@ class Voc:
         try:
             return cls.ops[n]
         except KeyError:
-            raise ValueError(f"Undefined operator: '{n}'")
-
-def rho(alpha: Sequence[int],  omega: Array) -> Array:
-    """
-    Monadic: shape
-    Dyadic: reshape
-
-    Apply the shape alpha to the ravel of omega. The rank of alpha must be 0 or 1
-
-    APL> ,5 5⍴3 3⍴3 2 0 8 6 5 4 7 1
-    3 2 0 8 6 5 4 7 1 3 2 0 8 6 5 4 7 1 3 2 0 8 6 5 4
-
-    >>> reshaped = rho([5, 5], A([3, 3], [3, 2, 0, 8, 6, 5, 4, 7, 1]))
-    >>> expected = A([5, 5], [3, 2, 0, 8, 6, 5, 4, 7, 1, 3, 2, 0, 8, 6, 5, 4, 7, 1, 3, 2, 0, 8, 6, 5, 4])
-    >>> match(reshaped, expected)
-    True
-
-    >>> reshaped = rho([2, 2], S(5))
-    >>> expected = A([2, 2], [5, 5, 5, 5])
-    >>> match(reshaped, expected)
-    True
-
-    >>> shape = rho([], A([2, 2], [1, 2, 3, 4]))
-    >>> match(shape, V([2, 2]))
-    True
-    """
-    if not alpha: # Monadic
-        return V(omega.shape)
-
-    return A(alpha, omega.data) # type: ignore
+            raise ValueError(f"VALUE ERROR: Undefined operator: '{n}'")
 
 def derive(operator: Callable, left: Callable|str, right: Optional[Callable|str], arity: Arity) -> Callable:
     if arity == Arity.MONAD:

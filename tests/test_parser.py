@@ -13,6 +13,12 @@ class TestParser:
         ast = parser.parse(src)
         assert "CHNK[MONADIC(MOP('⌿', FUN(+)), VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4), SCALAR(5)])]" == str(ast)
 
+    def test_mop_deriving_monad2(self):
+        src = "+/1 2 3 4 5"
+        parser = Parser()
+        ast = parser.parse(src)
+        assert "CHNK[MONADIC(MOP('/', FUN(+)), VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4), SCALAR(5)])]" == str(ast)
+
     def test_mop_deriving_dyad(self):
         src = "1 +⍨ 2"
         parser = Parser()

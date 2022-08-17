@@ -13,6 +13,7 @@ I started building this in zig, and got a fair way, but learning both a for me n
 * [RGS/apl](https://mathspp.com/blog/lsbasi-apl-part1)
 * [dzaima/apl](https://github.com/dzaima/APL)
 * [ngn/apl](https://github.com/abrudz/ngn-apl)
+* [prompt toolkit](https://python-prompt-toolkit.readthedocs.io)
 
 ## 
 

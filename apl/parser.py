@@ -3,8 +3,8 @@ from apl.node import Node, NodeType
 from apl.tokeniser import Token, Tokeniser, TokenType
 
 SCALARS = [TokenType.SCALAR, TokenType.NAME]
-DYADIC_OPS = set('⍥@⍣⍤∘.⌺⍠')
-MONADIC_OPS = set('⌿⍀¨⍨')
+DYADIC_OPS = set('⍥@⍣⍤∘.⌺⍠') # FIXME: this should use apl.voc!!
+MONADIC_OPS = set('\\/⌿⍀¨⍨')
 
 class Parser:
     """
@@ -42,7 +42,7 @@ class Parser:
     def expect_token(self, toktype: TokenType) -> Token:
         tok = self.eat_token()
         if tok.kind != toktype:
-            raise UnexpectedToken(tok.kind)
+            raise UnexpectedToken("SYNTAX ERROR")
         return tok
 
     def parse(self, chunk: str) -> Node:

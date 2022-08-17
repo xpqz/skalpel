@@ -7,7 +7,7 @@ from apl.errors import DomainError, LimitError, RankError
 class Array:
     def __init__(self, shape: list[int], data: Sequence) -> None:
         if len(shape) > 16:
-            raise LimitError("Rank of resultant array would exceed maximum permitted")
+            raise LimitError("LIMIT ERROR: Rank of resultant array would exceed maximum permitted")
         self.shape = shape
         self.bound = math.prod(self.shape)
         self.rank = len(self.shape)
@@ -19,7 +19,7 @@ class Array:
         """
         for e in self.data:
             if not issimple(e):
-                raise DomainError
+                raise DomainError("DOMAIN ERROR")
 
         return [e.data[0] for e in self.data]
         
@@ -41,7 +41,7 @@ class Array:
         4
         """
         if self.rank == 0:
-            raise RankError('cannot index scalars')
+            raise RankError('RANK ERROR: cannot index scalars')
 
         idx = decode(self.shape, coords)
         return self.data[idx]
@@ -87,7 +87,7 @@ class Array:
             return self
 
         if k > self.rank:
-            raise RankError
+            raise RankError("RANK ERROR")
 
         if self.rank == k:
             return S(self)
@@ -118,7 +118,7 @@ class Array:
         True
         """
         if not ind or len(ind) > self.rank:
-            raise RankError
+            raise RankError("RANK ERROR")
 
         # Shape and bound of cell
         rank = self.rank - len(ind)

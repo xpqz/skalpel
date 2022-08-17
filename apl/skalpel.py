@@ -22,7 +22,7 @@ def run(code:Sequence, env:dict[str, Array], ip:int, stack:Stack) -> None:
             env[arg] = stack.pop()[0]
         elif instr == INSTR.get:
             if arg not in env:
-                raise ValueError('Undefined name: "{arg}"')
+                raise ValueError('VALUE ERROR: Undefined name: "{arg}"')
             stack.push([env[arg]])
         elif instr == INSTR.dya:
             (alpha, omega) = stack.pop(2)
