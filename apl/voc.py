@@ -327,15 +327,21 @@ class Voc:
     be instantiated.
     """
     funs: dict[str, Signature] = { 
-        #--- Monadic-------------------Dyadic----------------
-        '⍴': (lambda y: rho(None, y),  rho),
-        '⍳': (lambda y: iota(None, y), None),
-        '≢': (lambda y: S(y.shape[0]), match),
-        '⌊': (None,                    pervade(min)),
-        '+': (None,                    pervade(operator.add)),
-        # '=': (None,                    pervade(operator.eq)),  # Need to solve boolean array first
-        # '>': (None,                    pervade(operator.gt)),
-        # '<': (None,                    pervade(operator.lt)),
+        #--- Monadic----------------------Dyadic----------------
+        '⍉': (lambda y: transpose([], y), lambda x, y: transpose(x.to_list(), y)),
+        '⍴': (lambda y: rho(None, y),     rho),
+        '⍳': (lambda y: iota(None, y),    None),
+        '≢': (lambda y: S(y.shape[0]),    match),
+        '⌈': (None,                       pervade(max)),
+        '⌊': (None,                       pervade(min)),
+        '+': (None,                       pervade(operator.add)),
+        '×': (None,                       pervade(operator.mul)),
+        '=': (None,                       pervade(lambda x,y:int(x==y))),
+        '>': (None,                       pervade(lambda x,y:int(x>y))),
+        '<': (None,                       pervade(lambda x,y:int(x<y))),
+        '≠': (None,                       pervade(lambda x,y:int(x!=y))),
+        '≥': (None,                       pervade(lambda x,y:int(x>=y))),
+        '≤': (None,                       pervade(lambda x,y:int(x<=y))),
     }
 
     ops: dict[str, Operator] = {
