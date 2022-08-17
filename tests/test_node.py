@@ -1,6 +1,5 @@
-from apl.node import Node
 from apl.parser import Parser
-from apl.skalpel import CMD
+from apl.skalpel import INSTR
 
 class TestNode:
     def test_arith(self):
@@ -8,9 +7,9 @@ class TestNode:
         parser = Parser()
         ast = parser.parse(src)
         code = ast.emit()
-        assert code[0][0] == CMD.push
-        assert code[1][0] == CMD.push
-        assert code[2][0] == CMD.call
+        assert code[0][0] == INSTR.psh
+        assert code[1][0] == INSTR.psh
+        assert code[2][0] == INSTR.dya
 
     def test_mop_deriving_monad(self):
         src = "+⌿1 2 3 4 5"
@@ -19,7 +18,7 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            CMD.push, CMD.push, CMD.push, CMD.push, CMD.push, CMD.vec, CMD.call,
+            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.mon,
         ]
         
     def test_mop_deriving_dyad(self):
@@ -27,17 +26,17 @@ class TestNode:
         parser = Parser()
         ast = parser.parse(src)
         code = ast.emit()
-        assert code[0][0] == CMD.push
-        assert code[1][0] == CMD.push
-        assert code[2][0] == CMD.call
+        assert code[0][0] == INSTR.psh
+        assert code[1][0] == INSTR.psh
+        assert code[2][0] == INSTR.dya
 
     def test_gets(self):
         src = "var←99"
         parser = Parser()
         ast = parser.parse(src)
         code = ast.emit()
-        assert code[0][0] == CMD.push
-        assert code[1][0] == CMD.set
+        assert code[0][0] == INSTR.psh
+        assert code[1][0] == INSTR.set
 
     def test_diamond(self):
         src = "v←⍳99 ⋄ s←+⌿v"
@@ -47,7 +46,7 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            CMD.push, CMD.call, CMD.set, CMD.get, CMD.call, CMD.set,
+            INSTR.psh, INSTR.mon, INSTR.set, INSTR.get, INSTR.mon, INSTR.set,
         ]
 
     def test_sys(self):
@@ -55,8 +54,8 @@ class TestNode:
         parser = Parser()
         ast = parser.parse(src)
         code = ast.emit()
-        assert code[0][0] == CMD.push
-        assert code[1][0] == CMD.set
+        assert code[0][0] == INSTR.psh
+        assert code[1][0] == INSTR.set
 
     def test_dop_deriving_dyad(self):
         src = "1 2 3 ⌊⍥≢ 1 2 3 4"
@@ -65,7 +64,7 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            CMD.push, CMD.push, CMD.push, CMD.vec, CMD.push, CMD.push, CMD.push, CMD.push, CMD.vec, CMD.call,  
+            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.dya,  
         ]
     
     

@@ -27,3 +27,38 @@ if rank == 2:
             idx += 1
             j += shape[0]
 ```
+
+## The Array
+
+Everything in APL is an array, even scalars. An array's shape defines its dimensionality. A scalar is an array with empty shape and a rank 0:
+
+    Array([], [5])
+
+A vector has a single-element shape (rank 1), the sole element denoting the length of the vector:
+
+    Array([5], [1, 2, 3, 4, 5]) # A length 5 vector
+
+This idea generalises to higher ranks. What we normally think of as a matrix -- a 2D array -- has rank 2:
+
+    Array([2, 3], [2, 3, 6, 4, 1, 6])
+
+    ┌→────┐
+    ↓2 3 6│
+    │4 1 6│
+    └~────┘
+
+APLs arrays are stored row-major, so in a rank 2 array, the leading axis -- the first -- defines the rows, that is (y, x).
+
+### Cells
+
+In leading axis theory, each array consists of a set of cells of varying degree, from the rank and down to, and including zero. Thus, the rank 2 array above consists of cells of degree 2 (a single 2-cell, the array itself), rank 1 (two 1-cells; the rows), and, finally, 6 0-cells; the scalars. Each such cell is in itself an array, as per the definition above. 
+
+2 3
+
+
+We can express the general idea like this: any given array of rank R can be composed from a set of cells of rank S
+
+      The result of asking for the n-cells of an array of rank r
+        is an APLArray of rank (r-n) with shape equal to the first
+        (r-n) elements of the shape of the original array.
+

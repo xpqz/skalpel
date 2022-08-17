@@ -1,6 +1,9 @@
 class ArityError(Exception):
     pass
 
+class DomainError(Exception):
+    pass
+
 class EmitError(Exception):
     pass
 

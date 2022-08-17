@@ -1,85 +1,34 @@
-import types
-from typing import Callable, Optional
+from typing import Sequence
 from enum import Enum
+from apl.arr import Array, S, V
+from apl.stack import Stack
 
-class CMD(Enum):
-    push=0
+class INSTR(Enum):
+    psh=0
     pop=1
     set=2
     get=3
-    call=4
-    vec=5
+    mon=4
+    dya=6
+    vec=7
 
-class SYM(Enum):
-    const=0
-    var=1
-    primitive=2
-    fun=3
-
-class ExpectedArity(Exception):
-    pass 
-
-class BuiltIn:
-    def __init__(self, arity: int, op: Callable):
-        if arity not in [1, 2]:
-            raise ExpectedArity('A function needs an arity of 1 or 2')
-        self.arity = arity
-        self.op = op
-
-class Fun:
-    def __init__(self, arity: int, op: Callable):
-        if arity not in [1, 2]:
-            raise ExpectedArity('A function needs an arity of 1 or 2')
-        self.arity = arity
-        self.op = op
-
-class Var:
-    def __init__(self, value: int):
-        self.value = value
-
- # code:bytecode,env:environment,ip:instruction counter,stack:stack
-def vm(code, env, ip, stack):
-    while ip<len(code):
-        (cmd, arg) = code[ip]
-        if cmd == CMD.push:
-            stack.append(arg)
-            ip += 1
-        elif cmd == CMD.set:
-            env[arg] = Var(stack.pop())
-            ip += 1
-        elif cmd == CMD.get:
+def run(code:Sequence, env:dict[str, Array], ip:int, stack:Stack) -> None:
+    while ip < len(code):
+        (instr, arg) = code[ip]
+        ip += 1
+        if instr == INSTR.psh:
+            stack.push([S(arg)])
+        elif instr == INSTR.set:
+            env[arg] = stack.pop()[0]
+        elif instr == INSTR.get:
             if arg not in env:
-                raise ValueError('Undefined variable: "{arg}"')
-            var = env[arg]
-            if not isinstance(var, Var):
-                raise ValueError('Expected a variable: "{arg}"')
-            stack.append(env[arg].value)
-            ip += 1
-        elif cmd == CMD.call:
-            if arg not in env:
-                raise ValueError(f'Undefined function: "{arg}"')
-            sym = env[arg]
-            if not isinstance(sym, (BuiltIn, Fun)):
-                raise ValueError(f'Not callable: "{arg}"')
-            if sym.arity == 2:
-                omega = stack.pop()
-                alpha = stack.pop()                
-                r = sym.op(alpha, omega)
-            else:
-                omega = stack.pop()
-                r = sym.op(omega)
-            stack.append(r)
-            ip += 1
-        else:
-            raise ValueError(f'Unknown instruction: {cmd}')
-    return stack.pop()
+                raise ValueError('Undefined name: "{arg}"')
+            stack.push([env[arg]])
+        elif instr == INSTR.dya:
+            (alpha, omega) = stack.pop(2)
+            stack.push([arg(alpha, omega)])
+        elif instr == INSTR.mon:
+            stack.push([arg(stack.pop()[0])])
+        elif instr == INSTR.vec:
+            stack.push([V(stack.pop(arg))])    
 
-if __name__ == "__main__":
-    symtab = {
-        '+': BuiltIn(2, lambda x, y:x+y)
-    }
-
-    code = [(CMD.push, 5), (CMD.set, 'a'), (CMD.push, 7), (CMD.get, 'a'), (CMD.call, '+')]
-
-    print(vm(code, symtab, 0, []))
-            

@@ -1,11 +1,10 @@
 from enum import Enum, auto
 from typing import Callable, Optional, TypeAlias
 
-from apl.errors import ArityError, EmitError, ValueError
-from apl.funs import Arity, FUNS, Signature
-from apl.ops import derive, OPERATORS, Operator
-from apl.skalpel import CMD
+from apl.errors import ArityError, EmitError
+from apl.skalpel import INSTR
 from apl.tokeniser import Token
+from apl.voc import Arity, derive, Voc
 
 class NodeType(Enum):
     GETS = auto()
@@ -22,12 +21,18 @@ class NodeType(Enum):
 NodeList: TypeAlias = list['Node'] # type: ignore
 
 class Node:
-    code = []
+    code: list[tuple] = []
 
     def __init__(self, kind: NodeType, tok: Optional[Token], children: Optional[NodeList] = None) -> None:
         self.kind = kind
         self.main_token = tok
         self.children = children
+
+    def _mttok(self) -> str:
+        if self.main_token is None or not isinstance(self.main_token.tok, str):
+            raise EmitError('expected a main_token of type str')
+        else:
+            return self.main_token.tok
 
     def add(self, node: 'Node') -> None:
         if self.children is None:
@@ -38,43 +43,34 @@ class Node:
     def emit_monadic_function(self) -> Callable:
         assert self.kind in [NodeType.FUN, NodeType.MOP, NodeType.DOP]
         if self.kind == NodeType.FUN:
-            try:
-                fn: Signature = FUNS[self.main_token.tok]
-            except KeyError:
-                raise ValueError(f"function '{self.main_token.tok}' is not defined")
-            if fn[0] is None:
-                raise ArityError(f"function '{self.main_token.tok}' is not monadic")
-            return fn[0]
-        else:
-            return self.emit_derived_monad()
+            return Voc.get_fn(self._mttok(), Arity.MONAD)
+        return self.emit_derived_monad()
 
     def emit_dyadic_function(self) -> Callable:
         assert self.kind in [NodeType.FUN, NodeType.MOP, NodeType.DOP]
         if self.kind == NodeType.FUN:
-            try:
-                fn: Signature = FUNS[self.main_token.tok]
-            except KeyError:
-                raise ValueError(f"function '{self.main_token.tok}' is not defined")
-            if fn[1] is None:
-                raise ArityError(f"function '{self.main_token.tok}' is not dyadic")
-            return fn[1]
+            return Voc.get_fn(self._mttok(), Arity.DYAD)
         return self.emit_derived_dyad()
 
     def emit_scalar(self) -> None:
-        Node.code.append((CMD.push, self.main_token.tok))
+        if self.main_token is None:
+            raise EmitError('main_token is undefined')
+        Node.code.append((INSTR.psh, self.main_token.tok))
 
     def emit_id(self) -> None:
-        Node.code.append((CMD.get, self.main_token.tok))
+        if self.main_token is None:
+            raise EmitError('main_token is undefined')
+        Node.code.append((INSTR.get, self.main_token.tok))
 
     def emit_derived_monad(self) -> Callable:
-        op_name = self.main_token.tok
-        try:
-            op: Operator = OPERATORS[op_name]
-        except KeyError:
-            raise ValueError(f"operator '{op_name}' not defined")
+        op_name = self._mttok()
+        op = Voc.get_op(op_name)
 
+        if self.children is None:
+            raise EmitError('node has no children')
+    
         if op.derives != Arity.MONAD:
-            raise ValueError(f"operator '{op_name}' does not derive a monadic function")
+            raise ArityError(f"operator '{op_name}' does not derive a monadic function")
 
         if op.left == Arity.MONAD:
             left = self.children[0].emit_monadic_function()
@@ -92,14 +88,14 @@ class Node:
         return derive(op.f, left, right, Arity.MONAD)
 
     def emit_derived_dyad(self) -> Callable:
-        op_name = self.main_token.tok
-        try:
-            op: Operator = OPERATORS[op_name]
-        except KeyError:
-            raise ValueError(f"operator '{op_name}' not defined")
+        op_name = self._mttok()
+        if self.children is None:
+            raise EmitError('node has no children')
+
+        op = Voc.get_op(op_name)
 
         if op.derives != Arity.DYAD:
-            raise ValueError(f"operator '{op_name}' does not derive a dyadic function")
+            raise ArityError(f"operator '{op_name}' does not derive a dyadic function")
 
         if op.left == Arity.MONAD:
             left = self.children[0].emit_monadic_function()
@@ -117,6 +113,8 @@ class Node:
         return derive(op.f, left, right, Arity.DYAD)
 
     def emit_monadic_call(self) -> None:
+        if self.children is None:
+            raise EmitError('node has no children')
         assert self.children[0].kind in [NodeType.FUN, NodeType.MOP, NodeType.DOP]
         self.children[1].emit()
         if self.children[0].kind == NodeType.FUN:
@@ -124,9 +122,11 @@ class Node:
         else:
             fn = self.children[0].emit_derived_monad()
 
-        Node.code.append((CMD.call, fn))
+        Node.code.append((INSTR.mon, fn))
 
     def emit_dyadic_call(self) -> None:
+        if self.children is None:
+            raise EmitError('node has no children')
         assert self.children[0].kind in [NodeType.FUN, NodeType.MOP, NodeType.DOP]
         self.children[1].emit()
         self.children[2].emit()
@@ -135,19 +135,25 @@ class Node:
         else:
             fn = self.children[0].emit_derived_dyad()
         
-        Node.code.append((CMD.call, fn))
+        Node.code.append((INSTR.dya, fn))
 
     def emit_gets(self) -> None:
+        if self.children is None:
+            raise EmitError('node has no children')
         assert self.children[0].kind == NodeType.ID
         self.children[1].emit()
-        Node.code.append((CMD.set, self.children[0].main_token.tok))
+        Node.code.append((INSTR.set, self.children[0]._mttok()))
 
     def emit_vector(self) -> None:
+        if self.children is None:                     # NOTE we need to handle ⍬ somehow
+            raise EmitError('node has no children')
         for el in self.children:
             el.emit()
-        Node.code.append((CMD.vec, len(self.children)))
+        Node.code.append((INSTR.vec, len(self.children)))
 
     def emit_chunk(self) -> list:
+        if self.children is None:
+            raise EmitError('node has no children')  # NOTE this should bot be an error
         for sc in self.children:
             sc.emit()
         return Node.code
