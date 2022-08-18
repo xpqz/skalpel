@@ -1,7 +1,7 @@
 from apl.arr import Array
 
 def _box_vector(vec: Array) -> None:
-    data = ' '.join([f'{s.data[0]}' for s in vec.data])
+    data = ' '.join([f'{s.data[0]}' for s in vec.data]).replace('-', '¯')
     div = '─'*(len(data)-1)
     print(f"┌→{div}┐")
     print(f"│{data}│")
@@ -11,15 +11,16 @@ def _format_matrix(mat: Array, width: int) -> list[str]:
     res = []
     for row in range(mat.shape[0]):
         data = mat.index_cell([row]).data
-        res.append((''.join([f'{s.data[0]:>{width}} ' for s in data]))[:-1])
+        tmp = (''.join([f'{s.data[0]:>{width}} ' for s in data]))[:-1]
+        res.append(tmp.replace('-', '¯'))
     return res
 
 def box(mat: Array) -> None:
     """
-    Boxed display for non-nested arrays.
+    Boxed display for non-nested arrays. Nested NYI
     """
     if mat.shape == []:
-        print(mat.data[0])
+        print(str(mat.data[0]).replace('-', '¯'))
         return
 
     strs = [str(i.data[0]) for i in mat.data]

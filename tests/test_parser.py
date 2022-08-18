@@ -1,6 +1,24 @@
 from apl.parser import Parser
 
 class TestParser:
+    def test_comment_only(self):
+        src = " ⍝ a comment "
+        parser = Parser()
+        ast = parser.parse(src)
+        assert ast is None
+
+    def test_empty(self):
+        src = ""
+        parser = Parser()
+        ast = parser.parse(src)
+        assert ast is None
+
+    def test_whitespace(self):
+        src = "         "
+        parser = Parser()
+        ast = parser.parse(src)
+        assert ast is None
+
     def test_parser_arith(self):
         src = "1+2"
         parser = Parser()

@@ -15,7 +15,7 @@ def main():
     parser = Parser()
     env = {}
 
-    print(f'Welcome to skalpel "APL". (c) 2022 xpqz, GNU AGPLv3. C-d to quit')
+    print(f'Welcome to skalpel "APL". (c) 2022 xpqz, MIT LICENSE. C-d to quit')
     while True:
         try:
             src = session.prompt('skalpel> ', lexer=PygmentsLexer(APLLexer))
@@ -29,6 +29,8 @@ def main():
 
         try:
             ast = parser.parse(src)
+            if ast is None: # empty, whitespace only, or comment only
+                continue
             code = ast.emit()
         except Exception as inst:
             print(inst)
@@ -40,7 +42,10 @@ def main():
         # If the stack isn't empty, show its final result
         if stack.stackptr == 0: # one element
             result = stack.pop()[0]
-            box(result)
+            try:
+                box(result)
+            except:
+                print(result)
 
 if __name__=="__main__":
     main()

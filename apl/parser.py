@@ -1,3 +1,4 @@
+from typing import Optional
 from apl.errors import UnexpectedToken
 from apl.node import Node, NodeType
 from apl.tokeniser import Token, Tokeniser, TokenType
@@ -45,10 +46,12 @@ class Parser:
             raise UnexpectedToken("SYNTAX ERROR")
         return tok
 
-    def parse(self, chunk: str) -> Node:
+    def parse(self, chunk: str) -> Optional[Node]:
         self.source = chunk
         self.tokens = Tokeniser(self.source).lex()
         self.current_token = len(self.tokens) - 1
+        if self.current_token == 0: # Just whitespace or comment
+            return None
         return self.parse_chunk()
 
     def parse_chunk(self) -> Node:

@@ -23,6 +23,22 @@ class Operator:
     left: Arity                     # Arity of left operand
     right: Optional[Arity] = None   # Arity of right operand, if I am dyadic
 
+def mpervade(f: Callable) -> Callable:
+    """
+    Pervade a simple function f into omega
+
+    f must have a signature of fn(omega: int|float) -> int|float
+    """
+    def pervaded(omega: Array) -> Array:
+        """
+        Case 0: +2           
+        Case 1: +1 ¯2 0
+        """
+        if issimple(omega):       # Case 0: scalar
+            return S(f(omega.data[0]))
+        return A(omega.shape, [pervaded(x) for x in omega.data])
+    return pervaded
+
 def pervade(f: Callable) -> Callable:
     """
     Pervade a simple function f into either arguments of equal shapes, 
@@ -277,20 +293,26 @@ def _reduce(*, operand: Callable, axis: int, omega: Array) -> Array:
 
     return A(shape, ravel)
 
-def iota(alpha: Optional[Array], omega: Array, IO: int=0) -> Array:
-    if alpha is not None:
-        raise NYIError('dyadic iota')
+def index_gen(omega: Array, IO: int=0) -> Array:
+    """
+    ⍳ - index generator (monadic)
 
+    >>> index_gen(None, S(5))      # Scalar omega
+    Vector([Scalar(0), Scalar(1), Scalar(2), Scalar(3), Scalar(4)])
+
+    >>> index_gen(None, V([2, 2])) # Vector omega
+    Array([2, 2], [Scalar(Vector([Scalar(0), Scalar(0)])), Scalar(Vector([Scalar(0), Scalar(1)])), Scalar(Vector([Scalar(1), Scalar(0)])), Scalar(Vector([Scalar(1), Scalar(1)]))])
+    """
     if issimple(omega):
         if not isinstance(omega.data[0], int):
-            raise DomainError('right arg must be integer')
+            raise DomainError('DOMAIN ERROR: right arg must be integer')
         return V(list(range(IO, omega.data[0])))
 
-    if omega.rank != 1:
-        raise RankError('rank of right arg must be 0 or 1')
+    if omega.rank > 1:
+        raise RankError('RANK ERROR: rank of right arg must be 0 or 1')
 
     shape = omega.to_list()
-    return A(shape, list(coords(shape, IO)))
+    return A(shape, [V(c) for c in coords(shape, IO)])
 
 def rho(alpha: Optional[Array],  omega: Array) -> Array:
     """
@@ -321,27 +343,57 @@ def rho(alpha: Optional[Array],  omega: Array) -> Array:
 
     return A(alpha.to_list(), omega.data) # type: ignore
 
+def enlist(omega: Array) -> Array:
+    """
+    Monadic ∊ - create a vector of all simple scalars contained in omega, recursively
+    drilling into any nesting and shapes.
+    """
+    data = []
+    def inner(o: Array) -> None:
+        for e in o.data:
+            if issimple(e):
+                data.append(e)
+            else:
+                inner(e)
+    inner(omega)
+    # Note: not using A() saves us repeating the scalar check we just did
+    return Array([len(data)], data) 
+
+def member(alpha: Array, omega: Array) -> Array:
+    """
+    Dyadic ∊ - is alpha found as a cell in omega?
+
+    FIXME: check this works for nested
+    """
+    for c in coords(omega.shape):
+        if match(alpha, omega.get(c)):
+            return S(1)
+    return S(0)
+
 class Voc:
     """
     Voc is the global vocabulary of built-in functions and operators. This class should not
     be instantiated.
     """
     funs: dict[str, Signature] = { 
-        #--- Monadic----------------------Dyadic----------------
-        '⍉': (lambda y: transpose([], y), lambda x, y: transpose(x.to_list(), y)),
-        '⍴': (lambda y: rho(None, y),     rho),
-        '⍳': (lambda y: iota(None, y),    None),
-        '≢': (lambda y: S(y.shape[0]),    match),
-        '⌈': (None,                       pervade(max)),
-        '⌊': (None,                       pervade(min)),
-        '+': (None,                       pervade(operator.add)),
-        '×': (None,                       pervade(operator.mul)),
-        '=': (None,                       pervade(lambda x,y:int(x==y))),
-        '>': (None,                       pervade(lambda x,y:int(x>y))),
-        '<': (None,                       pervade(lambda x,y:int(x<y))),
-        '≠': (None,                       pervade(lambda x,y:int(x!=y))),
-        '≥': (None,                       pervade(lambda x,y:int(x>=y))),
-        '≤': (None,                       pervade(lambda x,y:int(x<=y))),
+        #--- Monadic-----------------------Dyadic----------------
+        '∊': (enlist,                      member),
+        '⍉': (lambda y: transpose([], y),  lambda x, y: transpose(x.to_list(), y)),
+        '⍴': (lambda y: rho(None, y),      rho),
+        '⍳': (index_gen,                   None),
+        '≢': (lambda y: S(y.shape[0]),     match),
+        '⌈': (None,                        pervade(max)),
+        '⌊': (None,                        pervade(min)),
+        '+': (None,                        pervade(operator.add)),
+        '-': (mpervade(operator.neg),      pervade(operator.sub)),
+        '×': (mpervade(lambda y:y/abs(y)), pervade(operator.mul)),
+        '|': (mpervade(lambda y:abs(y)),   pervade(lambda x,y:y%x)),       # DYADIC NOTE ARG ORDER
+        '=': (None,                        pervade(lambda x,y:int(x==y))),
+        '>': (None,                        pervade(lambda x,y:int(x>y))),
+        '<': (None,                        pervade(lambda x,y:int(x<y))),
+        '≠': (None,                        pervade(lambda x,y:int(x!=y))),
+        '≥': (None,                        pervade(lambda x,y:int(x>=y))),
+        '≤': (None,                        pervade(lambda x,y:int(x<=y))),
     }
 
     ops: dict[str, Operator] = {

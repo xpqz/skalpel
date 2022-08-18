@@ -1,6 +1,13 @@
 from apl.tokeniser import Tokeniser, TokenType
 
 class TestTokeniser:
+    def test_comment_only(self):
+        src = " ⍝ a comment "
+        tokeniser = Tokeniser(src)
+        tokens = tokeniser.lex()
+        assert len(tokens) == 1
+        assert tokens[0].kind == TokenType.EOF
+
     def test_system_variable(self):
         src = "⎕IO←0"
         tokeniser = Tokeniser(src)

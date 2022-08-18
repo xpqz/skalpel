@@ -33,7 +33,7 @@ class Array:
             return f"Vector({self.data})"
         return f"Array({self.shape}, {self.data})"
 
-    def get(self, coords: list[int]) -> Any:
+    def get(self, coords: Sequence[int]) -> Any:
         """
         Get item at coords.
 
@@ -144,18 +144,24 @@ def issimple(a: Array) -> bool:
 def A(shape: list[int], items: Sequence) -> Array:
     """
     Convenience 'constructor', which will ensure that simple scalars are
-    converted to rank-0 arrays.
+    converted to rank-0 arrays, and that non-enclosed higher-ranked elements
+    are enclosed.
 
     It will not enclose further a single simple scalar, so:
 
-    >>> match(A([], [S(5)]), S(5))
-    True
+    >>> A([], [S(5)])
+    Scalar(5)
+
+    It will, however, enclose highers:
+
+    >>> A([3], [V([1, 1]), V([1, 2]), V([1, 3])])
+    Vector([Scalar(Vector([Scalar(1), Scalar(1)])), Scalar(Vector([Scalar(1), Scalar(2)])), Scalar(Vector([Scalar(1), Scalar(3)]))])
     """
     if shape == [] and len(items) == 1 and isinstance(items[0], Array) and issimple(items[0]):
         return items[0]
 
     return Array(shape, [
-        e if isinstance(e, Array) else S(e) 
+        e if isinstance(e, Array) and e.shape == [] else S(e) 
         for e in items
     ])
 
