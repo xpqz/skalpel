@@ -3,9 +3,9 @@
 from pygments.lexers.apl import APLLexer
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit import PromptSession
+from prompt_toolkit.shortcuts import clear
 
-from apl.arr import Array
-from apl.box import box
+from apl.box import disp
 from apl.parser import Parser
 from apl.skalpel import run
 from apl.stack import Stack
@@ -24,26 +24,36 @@ def main():
         except EOFError:
             break
 
-        if len(src) == 0:
+        if len(src) == 0:  # User hit return only
+            continue
+
+        if src == ')clear':
+            env = {}
+            clear()
+            print('Environment reset')
             continue
 
         try:
             ast = parser.parse(src)
-            if ast is None: # empty, whitespace only, or comment only
+            if ast is None: # Whitespace or comments only
                 continue
             code = ast.emit()
         except Exception as inst:
-            print(inst)
+            print(inst) # Syntactic errors
             continue
 
         stack = Stack()
-        run(code, env, 0, stack)
+        try:
+            run(code, env, 0, stack)
+        except Exception as inst: 
+            print(inst) # User error
+            continue        
 
         # If the stack isn't empty, show its final result
-        if stack.stackptr == 0: # one element
+        if stack.stackptr == 0: # Single element
             result = stack.pop()[0]
             try:
-                box(result)
+                disp(result)
             except:
                 print(result)
 
