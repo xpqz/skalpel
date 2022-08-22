@@ -58,29 +58,32 @@ def compare_throws(a: str, aplerror: Exception) -> bool:
     return False
 
 def main() -> None:
-    # with open('tests/apltests.txt') as f:
-    with open('tests/aplbasic.txt') as f:
+    with open('tests/apltests.txt') as f:
+    # with open('tests/aplbasic.txt') as f:
         tests = f.read().splitlines()
 
     failed = []
     succeeded = []
     for t in tests:
+        print(t)
         if " ←→ " in t:
             data = t.split(" ←→ ")
             if not compare(data[0], data[1]):
-                print(f"failed: {t}")
+                # print(f"failed: {t}")
                 failed.append(t)
             else:
+                print(f"succeeded: {t}")
                 succeeded.append(t)
         elif " !! " in t:
             data = t.split(" !! ")
             if data[1] not in EXCEPTIONS:
-                print(f"failed: {t}")
+                # print(f"failed: {t}")
                 failed.append(t)
             elif not compare_throws(data[0], EXCEPTIONS[data[1]]): # type: ignore
-                print(f"failed: {t}")
+                # print(f"failed: {t}")
                 failed.append(t)
             else:
+                print(f"succeeded: {t}")
                 succeeded.append(t)
         else:
             print(f"Malformed test: {t}")
