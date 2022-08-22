@@ -1,4 +1,5 @@
 from math import prod
+import pytest
 import apl.arr as arr
 
 class TestIndexCell:
@@ -29,15 +30,29 @@ class TestEncodeDecode:
     def test_simple_encode(self):
         assert [2, 46, 40] == arr.encode([24, 60, 60], 10_000)
 
-    def test_decode(self):
-        assert 0 == arr.decode([2, 2], [0, 0])
-        assert 3 == arr.decode([2, 2], [1, 1])
-        assert 10000 == arr.decode([24, 60, 60], [2, 46, 40]) 
-        assert 13 == arr.decode([2, 2, 2, 2], [1, 1, 0, 1]) 
+    @pytest.mark.parametrize("test_input,expected", [
+        (([2, 2], [0, 0]),                 0),
+        (([2, 2], [1, 1]),                 3),
+        (([24, 60, 60], [2, 46, 40]),  10000),
+        (([2, 2, 2, 2], [1, 1, 0, 1]),    13),
+    ])
+    def test_decode(self, test_input, expected):
+        assert expected == arr.decode(*test_input)
 
 class TestCoords:
     def test_coords_simple(self):
         assert list(arr.coords([2, 3])) == [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]]
+    
+class TestIsNested:
+    @pytest.mark.parametrize("test_input,expected", [
+        (arr.S(1),                         False), # 1
+        (arr.V([1, 2, 3]),                 False), # 1 2 3
+        (arr.A([2, 2], [1, 2, 3, 4]),      False), # 2 2⍴1 2 3 4
+        (arr.V([1, arr.V([1, 2])]),        True),  # 1 (1 2)
+        (arr.S(arr.V([1, arr.V([1, 2])])), True),  # ⊂1 (1 2)
+    ])
+    def test_is_nested(self, test_input, expected):
+        assert expected == arr.isnested(test_input)
         
 
 

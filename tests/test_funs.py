@@ -28,10 +28,10 @@ class TestPervade:
 
     def test_non_simple(self):
         plus = pervade(lambda x, y:x+y)
-        a = A([3, 2], [54, 7, A([2, 2], [1]), 4, 73, 3, 1])
+        a = A([3, 2], [54, 7, A([2, 2], [1]), 4, 73, 3])
         b = S(12)
         result = plus(b, a)
-        expected = A([3, 2], [66, 19, A([2, 2], [13]), 16, 85, 15, 13])
+        expected = A([3, 2], [66, 19, A([2, 2], [13]), 16, 85, 15])
         assert match(result, expected)
 
 

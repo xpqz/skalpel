@@ -138,8 +138,25 @@ class Array:
 
         return A(csh, data) # NOTE: must use convenience constructor
 
+def isscalar(a: Array) -> bool:
+    return not a.shape
+
 def issimple(a: Array) -> bool:
-    return a.shape == [] and not isinstance(a.data[0], Array)
+    return isscalar(a) and not isinstance(a.data[0], Array)
+
+def disclose(a: Array) -> Array:
+    if issimple(a):
+        return a
+    return a.data[0]
+
+def isnested(a: Array) -> bool:
+    if issimple(a): # I am but a simple, humble scalar
+        return False
+
+    if isscalar(a): # I am enclosed. Check payload
+        return isnested(disclose(a))
+
+    return not all(issimple(disclose(cell)) for cell in a.data)
 
 def A(shape: list[int], items: Sequence) -> Array:
     """
@@ -179,8 +196,12 @@ def S(item: Any) -> Array:
     >>> match(S(S(S(5))), S(5))
     True
     """
+    if not isinstance(item, (int, float, complex, Array)): # Too many self-inflicted problems
+        raise TypeError
+
     if isinstance(item, Array) and issimple(item):
         return item
+
     return Array([], [item])  # NOTE: can't call A() for infinite recursion reasons :)
 
 def match(alpha: Array, omega: Array) -> bool:

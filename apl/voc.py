@@ -7,7 +7,7 @@ import operator
 from typing import Callable, Optional, Sequence, TypeAlias
 
 from apl.arr import Array, A, S, V, coords, decode, issimple, match
-from apl.errors import ArityError, DomainError, NYIError, RankError
+from apl.errors import ArityError, DomainError, LengthError, NYIError, RankError
 
 Signature: TypeAlias = tuple[Optional[Callable], Optional[Callable]]
 
@@ -36,7 +36,7 @@ def mpervade(f: Callable) -> Callable:
         """
         if issimple(omega):       # Case 0: scalar
             return S(f(omega.data[0]))
-        return A(omega.shape, [pervaded(x) for x in omega.data])
+        return Array(omega.shape, [pervaded(x) for x in omega.data]) # Not A(), or we'd get doubled enclosures
     return pervaded
 
 def pervade(f: Callable) -> Callable:
@@ -58,15 +58,18 @@ def pervade(f: Callable) -> Callable:
             return S(f(alpha.data[0], omega.data[0]))
 
         if issimple(alpha):                           # Case 1: left is scalar
-            return A(omega.shape, list(map(lambda x: pervaded(alpha, x), omega.data)))
+            return Array(omega.shape, list(map(lambda x: pervaded(alpha, x), omega.data))) # Not A()!
 
         if issimple(omega):                           # Case 2: right is scalar
-            return A(alpha.shape, list(map(lambda x: pervaded(x, omega), alpha.data)))
+            return Array(alpha.shape, list(map(lambda x: pervaded(x, omega), alpha.data)))
 
         if alpha.shape == omega.shape:                # Case 3: equal shapes
             data = list(map(lambda x: pervaded(alpha.data[x], omega.data[x]), range(alpha.bound)))
-            return A(alpha.shape, data)
-        raise RankError                               # Case 4: unequal shapes; rank error
+            return Array(alpha.shape, data)
+
+        if alpha.rank == 1 and omega.rank == 1:       # Case 4a: unequal lengths
+            raise LengthError("LENGTH ERROR: Mismatched left and right argument shapes")    
+        raise RankError("RANK ERROR")                 # Case 4b: unequal shapes; rank error
 
     return pervaded
 
@@ -297,10 +300,10 @@ def index_gen(omega: Array, IO: int=0) -> Array:
     """
     ⍳ - index generator (monadic)
 
-    >>> index_gen(None, S(5))      # Scalar omega
+    >>> index_gen(S(5))      # Scalar omega
     Vector([Scalar(0), Scalar(1), Scalar(2), Scalar(3), Scalar(4)])
 
-    >>> index_gen(None, V([2, 2])) # Vector omega
+    >>> index_gen(V([2, 2])) # Vector omega
     Array([2, 2], [Scalar(Vector([Scalar(0), Scalar(0)])), Scalar(Vector([Scalar(0), Scalar(1)])), Scalar(Vector([Scalar(1), Scalar(0)])), Scalar(Vector([Scalar(1), Scalar(1)]))])
     """
     if issimple(omega):

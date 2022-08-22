@@ -8,13 +8,13 @@ I started building this in zig, and got a fair way, but learning both a for me n
 
 ## Unsorted useful
 
-* Python [bitarray](https://pypi.org/project/bitarray/) (c-extension)
+* [Python bitarray](https://pypi.org/project/bitarray/) (c-extension)
 * [APL in R](https://bookdown.org/jandeleeuw6/apl/core.html)
 * [RGS/apl](https://mathspp.com/blog/lsbasi-apl-part1)
 * [dzaima/apl](https://github.com/dzaima/APL)
 * [ngn/apl](https://github.com/abrudz/ngn-apl)
 * [prompt toolkit](https://python-prompt-toolkit.readthedocs.io)
-
+* [Python typed array](https://docs.python.org/3/library/array.html#module-array)
 ## 
 
 ```python

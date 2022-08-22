@@ -19,6 +19,9 @@ class NYIError(Exception):
 class RankError(Exception):
     pass
 
+class SyntaxError(Exception):
+    pass
+
 class UnexpectedToken(Exception):
     pass
 
