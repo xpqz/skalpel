@@ -46,7 +46,7 @@ class Array:
         idx = decode(self.shape, coords)
         return self.data[idx]
 
-    def kcells(self, k: int) -> 'Array':
+    def kcells(self, k: int) -> Iterator['Array']:
         """
         Dyalog's docs on k-cells:
     
@@ -84,13 +84,13 @@ class Array:
         Negative cells TODO
         """
         if k == 0:
-            return self
+            yield self
 
         if k > self.rank:
             raise RankError("RANK ERROR")
 
         if self.rank == k:
-            return S(self)
+            yield S(self)
 
         # Shape and bound of result
         rsh = self.shape[:self.rank-k]
@@ -100,10 +100,8 @@ class Array:
         csh = self.shape[self.rank-k:]
         cbnd = math.prod(csh)
 
-        return Array(rsh, [
-            Array(csh, self.data[cell*cbnd:(cell+1)*cbnd])
-            for cell in range(rbnd)
-        ])
+        for cell in range(rbnd):
+            yield Array(csh, self.data[cell*cbnd:(cell+1)*cbnd])
 
     def index_cell(self, ind: Sequence[int]) -> 'Array':
         """
@@ -181,6 +179,13 @@ def A(shape: list[int], items: Sequence) -> Array:
         e if isinstance(e, Array) and e.shape == [] else S(e) 
         for e in items
     ])
+
+def B(shape: list[int], items: Sequence) -> Array:
+    """
+    Convenience 'constructor', making a flat, Boolean array.
+    """
+    pass
+    # a = Array(shape, 
 
 def V(data: Sequence) -> Array:
     return A([len(data)], data)

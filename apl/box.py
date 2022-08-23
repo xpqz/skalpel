@@ -1,6 +1,19 @@
+"""
+Rich boxing display of arrays. Aim is to be a passable approximation
+of Dyalog's
+
+    ]box on -s=max
+
+It's a complex problem to get right. See the file
+
+    BOXERRORS.txt
+
+for known formatting errors.
+"""
 from typing import Sequence
 from functools import reduce
-from apl.arr import Array, issimple, isnested, disclose, coords
+from apl.arr import Array, issimple, disclose, coords
+
 def encase_vector(res: list, nested: bool) -> list:
     """
     Surround a vector with a frame.
@@ -39,7 +52,7 @@ def encase_enclosure(res: list) -> list:
 
     return encased
 
-def encase(shape: Sequence[int], res: list, nested: bool) -> list:
+def encase(shape: Sequence[int], res: list, nested: bool, wrap: bool=True) -> list:
     """
     Surround a character-array representation of an array with a frame.
     """
@@ -82,18 +95,28 @@ def encase(shape: Sequence[int], res: list, nested: bool) -> list:
             # Merge, separated by space
             rows.append(list(reduce(lambda x, y:list(x)+[' ']+list(y), row))) # type: ignore
 
-    # Merge the rows vertically, and wrap with the surrounding box
-    cols = max(map(len, rows))
-    encased = [list("┌→"+'─'*(cols-1)+"┐")]
-    for r in rows:
-        if len(r)<cols: # Account for cell separators added
-            r.extend([' ']*(cols-len(r)))
-        encased.append(['│']+r+['│'])
-    encased.append(list(f"└{vtype}"+'─'*(cols-1)+"┘"))
+    # Merge the rows vertically, and wrap with the surrounding box, if requested
+    if not wrap:
+        cols = max(map(len, rows))
+        encased = []
+        for r in rows:
+            if len(r)<cols: # Account for cell separators added
+                r.extend([' ']*(cols-len(r)))
+            encased.append([' ']+r+[' '])
+    else:
+        cols = max(map(len, rows))
+        encased = [list("┌→"+'─'*(cols-1)+"┐")]
+        for r in rows:
+            if len(r)<cols: # Account for cell separators added
+                r.extend([' ']*(cols-len(r)))
+            encased.append(['│']+r+['│'])
+        encased.append(list(f"└{vtype}"+'─'*(cols-1)+"┘"))
+        if len(shape) == 2:
+            encased[1][0] = '↓'
 
     return encased
 
-def _format(a: Array) -> list:
+def _format(a: Array, frame: bool=True) -> list:
     """
     Dispatch rendering on rank of cells in a.
     """
@@ -110,7 +133,7 @@ def _format(a: Array) -> list:
             nested = True
             res.append(box(disclose(cell)))
 
-    return encase(a.shape, res, nested)
+    return encase(a.shape, res, nested, frame)
 
 def box(mat: Array) -> list:
     """
@@ -131,25 +154,28 @@ def box(mat: Array) -> list:
     # Higher-ranked arrays render as 2-cells, with the preceeding
     # axes indicated by vertical 'bars' running down the left side.
 
-    # Loop over 2-cells
     bars = len(mat.shape[:-2])
-    cells = []
-    for cell2 in mat.kcells(2).data:
-        cells.append(_format(cell2))
+    cells = [_format(c, False) for c in mat.kcells(2)]
 
-    cols = len(cells[0][0])
+    # cols = len(cells[0][0])
+
+    cols = max(map(lambda x: len(x[0]), cells))
+
     divider = f"{'│'*(bars+1)}{' '*cols}│"
-    output = []
-    output.append("┌"*bars+"┌→"+'─'*(cols-1)+"┐")
     first = True
-    for cell in cells:
+
+    output = ["┌"*bars+"┌→"+'─'*(cols-1)+"┐"]
+    for cell in cells: # Loop over 2-cells
         for row in cell:
             row_str = ''.join(row)
+            hpadd = ''
+            if len(row_str) < cols:
+                hpadd = ' '*(cols-len(row_str))
             if first:
-                output.append(f"{'↓'*(bars+1)}{row_str}│")
+                output.append(f"{'↓'*(bars+1)}{row_str}{hpadd}│")
                 first = False
             else:
-                output.append(f"{'│'*(bars+1)}{row_str}│")
+                output.append(f"{'│'*(bars+1)}{row_str}{hpadd}│")
         output.append(divider)
     output[-1] = "└"*bars+"└~"+'─'*(cols-1)+"┘"
 
