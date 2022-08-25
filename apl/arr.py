@@ -1,160 +1,93 @@
 import itertools
 import math
 from typing import Any, Iterator, Sequence
+from bitarray import bitarray
+from apl.errors import DomainError, RankError
+from enum import Enum
 
-from apl.errors import DomainError, LimitError, RankError
+class DataType(Enum):
+    UINT1 = 0
+    UINT8 = 1
+    UTF   = 2
+    NUM   = 3
+    CMPLX = 4
+    MIXED = 5  # Can we be mixed without also being nested? 1 2.3 'a'
+
+    def __str__(self):
+        return self.name
+
+class ArrayType(Enum):
+    FLAT   = 0
+    NESTED = 1
+
+    def __str__(self):
+        return self.name
 
 class Array:
-    def __init__(self, shape: list[int], data: Sequence) -> None:
-        if len(shape) > 16:
-            raise LimitError("LIMIT ERROR: Rank of resultant array would exceed maximum permitted")
+
+    def __init__(self, shape: list[int], data_type: DataType, array_type: ArrayType, data: Sequence) -> None:
         self.shape = shape
-        self.bound = math.prod(self.shape)
-        self.rank = len(self.shape)
-        self.data = list(itertools.islice(itertools.cycle(data), self.bound))
+        self.rank = len(shape)
+        self.bound = math.prod(shape)
+        self.data: bitarray|bytearray|list # array implementation provider. This confuses mypy in places
+        self.type = data_type
+        self.array_type = array_type
 
-    def to_list(self) -> list:
-        """
-        Return a list of unwrapped scalars.
-        """
-        for e in self.data:
-            if not issimple(e):
-                raise DomainError("DOMAIN ERROR")
+        d = list(itertools.islice(itertools.cycle(data), self.bound)) # note: can be sub-Arrays
+        self.data = d
+        if array_type == ArrayType.FLAT:
+            if data_type == DataType.UINT1:
+                self.data = bitarray(d)
+            elif data_type == DataType.UINT8:
+                self.data = bytearray(d)
 
-        return [e.data[0] for e in self.data]
-        
     def __repr__(self):
-        return str(self)
-        
+        return self.__str__()
+
     def __str__(self):
-        if self.rank == 0:
-            return f"Scalar({self.data[0]})"
-        if self.rank == 1:
-            return f"Vector({self.data})"
-        return f"Array({self.shape}, {self.data})"
+        if isinstance(self.data, (bitarray, bytearray)):
+            data = [int(i) for i in self.data]  # Harmonise presentation of all non-list array providers
+        elif self.array_type == ArrayType.FLAT and isinstance(self.data[0], str):
+            data = f"'{''.join(self.data)}'"    # Join up list-of-char
+        else:
+            data = self.data
+
+        if self.shape == []:
+            if isinstance(self.data[0], Array): # Enclosed
+                return f"<{data[0]}>"
+            else:
+                return f"<{data[0]}>"           # Simple scalar
+
+        if self.rank == 1:                      # Vector
+            return f"V({self.type}, {self.array_type}, {data})"      
+
+        return f"A({self.shape}, {self.type}, {self.array_type}, {data})"
 
     def get(self, coords: Sequence[int]) -> Any:
         """
         Get item at coords.
-
-        >>> A([2, 2], [1, 9, 4, 8]).get([1, 0]).data[0]
-        4
         """
         if self.rank == 0:
             raise RankError('RANK ERROR: cannot index scalars')
 
         idx = decode(self.shape, coords)
-        return self.data[idx]
+        return self.data[idx]        
 
-    def kcells(self, k: int) -> Iterator['Array']:
+    def to_list(self) -> list:
         """
-        Dyalog's docs on k-cells:
-    
-        K-Cells
-
-        A rank-k cell or k-cell of an array are terms used to describe a sub-array 
-        on the trailling k axes of the array. Negative k is interpreted as r+k where r is 
-        the rank of the array, and is used to describe a sub-array on the leading |k 
-        axes of an array.
-
-        If X is a 3-dimensional array of shape 2 3 4, the 1-cells are its 6 rows each 
-        of 4 elements; and its 2-cells are its 2 matrices each of shape 3 4. Its 3-cells 
-        is the array in its entirety. Its 0-cells are its individual elements.
-        
-        See: https://aplwiki.com/wiki/Cell
-
-        Squad indexes k-cells:
-
-            A ← 3 4 5 6 7⍴1   ⍝ A is a rank 5 array
-            ⍴1 2⌷A            ⍝ Get the 3-cell at index 1 2
-            ┌→────┐
-            │5 6 7│
-            └~────┘
-
-        The kcells method essentially partitions the shape. If we ask for the 3-cells of
-        the above array A with a shape [3, 4, 5, 6, 7], we get back an array with the
-        shape [3, 4], where each element (the cells) are arrays of shape [5, 6, 7]:
-
-        >>> Array([3, 4, 5, 6, 7], [1]).kcells(3).shape
-        [3, 4]
-
-        >>> Array([3, 4, 5, 6, 7], [1]).kcells(3).data[0].shape
-        [5, 6, 7]
-
-        Negative cells TODO
+        Return a list of unwrapped scalars.
         """
-        if k == 0:
-            yield self
+        if self.array_type == ArrayType.FLAT:
+            if self.type in (DataType.UINT1, DataType.UINT8):
+                return [int(i) for i in self.data]
+            return list(self.data)
 
-        if k > self.rank:
-            raise RankError("RANK ERROR")
+        for e in self.data:
+            if all(isinstance(e, Array) for e in self.data):
+                if any(not issimple(e) for e in self.data): # type: ignore
+                    raise DomainError("DOMAIN ERROR")
 
-        if self.rank == k:
-            yield S(self)
-
-        # Shape and bound of result
-        rsh = self.shape[:self.rank-k]
-        rbnd = math.prod(rsh)
-
-        # Shape and bound of each cell
-        csh = self.shape[self.rank-k:]
-        cbnd = math.prod(csh)
-
-        for cell in range(rbnd):
-            yield Array(csh, self.data[cell*cbnd:(cell+1)*cbnd])
-
-    def index_cell(self, ind: Sequence[int]) -> 'Array':
-        """
-        Collapse the first rank-len(index) axes at a single index along each of them.
-
-        Beginnings of squad.
-
-        >>> import math
-        >>> shape = [3, 4, 5]
-        >>> a = A(shape, list(range(math.prod(shape))))
-        >>> match(a.index_cell([1]), A([4, 5], [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39])) # 1⌷a
-        True
-        """
-        if not ind or len(ind) > self.rank:
-            raise RankError("RANK ERROR")
-
-        # Shape and bound of cell
-        rank = self.rank - len(ind)
-        # csh = self.shape[-rank:]
-        # csh = self.shape[:-len(ind)]
-        csh = self.shape[len(ind):]
-        cbnd = math.prod(csh)
-
-        # Fix the indices given by ind in our shape
-        rr = [0 for _ in range(len(self.shape))]
-        for i, e in enumerate(ind):
-            rr[i] = e
-
-        # Find the start of this cell
-        pos = decode(self.shape, rr)
-        data = self.data[pos:pos+cbnd]
-
-        return A(csh, data) # NOTE: must use convenience constructor
-
-def isscalar(a: Array) -> bool:
-    return not a.shape
-
-def issimple(a: Array) -> bool:
-    return isscalar(a) and not isinstance(a.data[0], Array)
-
-def disclose(a: Array) -> Array:
-    if issimple(a):
-        return a
-    return a.data[0]
-
-def isnested(a: Array) -> bool:
-    if issimple(a): # I am but a simple, humble scalar
-        return False
-
-    if isscalar(a): # I am enclosed. Check payload
-        return isnested(disclose(a))
-
-    return not all(issimple(disclose(cell)) for cell in a.data)
+        return [e.data[0] for e in self.data] # type: ignore
 
 def A(shape: list[int], items: Sequence) -> Array:
     """
@@ -165,62 +98,146 @@ def A(shape: list[int], items: Sequence) -> Array:
     It will not enclose further a single simple scalar, so:
 
     >>> A([], [S(5)])
-    Scalar(5)
+    <5>
 
     It will, however, enclose highers:
 
     >>> A([3], [V([1, 1]), V([1, 2]), V([1, 3])])
-    Vector([Scalar(Vector([Scalar(1), Scalar(1)])), Scalar(Vector([Scalar(1), Scalar(2)])), Scalar(Vector([Scalar(1), Scalar(3)]))])
+    V(MIXED, NESTED, [<V(UINT1, FLAT, [1, 1])>, <V(UINT8, FLAT, [1, 2])>, <V(UINT8, FLAT, [1, 3])>])
     """
-    if shape == [] and len(items) == 1 and isinstance(items[0], Array) and issimple(items[0]):
+    if (
+        shape == [] and 
+        len(items) == 1 and 
+        isinstance(items[0], Array) and 
+        issimple(items[0])
+    ):
         return items[0]
 
-    return Array(shape, [
+    data = [
         e if isinstance(e, Array) and e.shape == [] else S(e) 
         for e in items
-    ])
+    ]
 
-def B(shape: list[int], items: Sequence) -> Array:
+    return Array(shape, DataType.MIXED, ArrayType.NESTED, data) # type: ignore
+
+def Aflat(shape: list[int], data: Sequence) -> Array:
     """
-    Convenience 'constructor', making a flat, Boolean array.
+    Given a sequence of scalars, make a flat array of the narrowest data type
+    into which it will fit.
     """
-    pass
-    # a = Array(shape, 
+    if any(isinstance(e, Array) for e in data):
+        raise ValueError
+
+    if any(isinstance(e, complex) for e in data):
+        return Array(shape, DataType.CMPLX, ArrayType.FLAT, data) # type: ignore
+
+    if all(isinstance(e, str) for e in data):
+        return Array(shape, DataType.UTF, ArrayType.FLAT, data) # type: ignore
+
+    if all(isinstance(e, int) for e in data):
+        max_val = max(data)
+        min_val = min(data)
+
+        if min_val in [0, 1] and max_val in [0, 1]:
+            return Array(shape, DataType.UINT1, ArrayType.FLAT, data) # type: ignore
+
+        if min_val in range(256) and max_val in range(256):
+            return Array(shape, DataType.UINT8, ArrayType.FLAT, data) # type: ignore
+
+        return Array(shape, DataType.NUM, ArrayType.FLAT, data) # type: ignore
+
+    if all(isinstance(e, (int, float)) for e in data):
+        return Array(shape, DataType.NUM, ArrayType.FLAT, data) # type: ignore
+
+    return Array(shape, DataType.MIXED, ArrayType.FLAT, data) # type: ignore
+
+def S(data: Any) -> Array:
+    if isinstance(data, Sequence):
+        raise RankError
+
+    if isinstance(data, Array) and issimple(data):
+        return data
+
+    if isinstance(data, Array):
+        return Array([], data.type, ArrayType.NESTED, [data])
+
+    if isinstance(data, int):
+        if data in range(2):
+            return Array([], DataType.UINT1, ArrayType.FLAT, [data])
+        if data in range(256):
+            return Array([], DataType.UINT8, ArrayType.FLAT, [data])
+        return Array([], DataType.NUM, ArrayType.FLAT, [data])
+
+    if isinstance(data, float):
+        return Array([], DataType.NUM, ArrayType.FLAT, [data])
+
+    if isinstance(data, str) and len(data) == 1:
+        return Array([], DataType.UTF, ArrayType.FLAT, [data])
+    else:
+        raise ValueError
 
 def V(data: Sequence) -> Array:
-    return A([len(data)], data)
-
-def S(item: Any) -> Array:
     """
-    Convenience constructor for making a rank-0 array from a simple scalar.
-    If the item is already a rank-0 array of a simple scalar, return it as-is.
-
-    >>> S(5).data[0] == 5
-    True
-
-    >>> match(S(S(S(5))), S(5))
-    True
+    Convenience constructor. Try to squeeze into smallest data width 
+    if not nested.
     """
-    if not isinstance(item, (int, float, complex, Array)): # Too many self-inflicted problems
-        raise TypeError
-
-    if isinstance(item, Array) and issimple(item):
-        return item
-
-    return Array([], [item])  # NOTE: can't call A() for infinite recursion reasons :)
-
-def match(alpha: Array, omega: Array) -> bool:
-    if alpha.shape != omega.shape:
-        return False
-    if not alpha.shape: # Simple scalar, or enclosed something
-        if isinstance(alpha.data[0], Array):
-            return match(alpha.data[0], omega.data[0])
+    flattened = []
+    for e in data:
+        if isinstance(e, Array):
+            if issimple(e):
+                flattened.append(e.data[0])
+            else:
+                return A([len(data)], data)
         else:
-            return alpha.data[0] == omega.data[0]
-    for i in range(alpha.bound):
-        if not match(alpha.data[i], omega.data[i]):
-            return False
+            flattened.append(e)
+    return Aflat([len(flattened)], flattened)
+    
+def isscalar(a: Any) -> bool:
+    if isinstance(a, Array):
+        return not a.shape
     return True
+
+def issimple(a: Any) -> bool:
+    if not isinstance(a, Array):
+        return True
+    return isscalar(a) and not isinstance(a.data[0], Array)
+
+def isnested(a: Any) -> bool:
+    if not isinstance(a, Array):
+        return False
+    return a.array_type == ArrayType.NESTED
+
+def enclose(arr: Array) -> Array:
+    return Array([], arr.type, ArrayType.NESTED, [arr])
+
+def disclose(arr: Any) -> Array:
+    if isinstance(arr, Array):
+        if issimple(arr):
+            return arr
+        return arr.data[0] # type: ignore
+    return S(arr) # make an array-y scalar from an actual scalar
+        
+def kcells(arr: Array, k: int) -> Iterator[Array]:
+    if k == 0:
+        yield arr
+
+    if k > arr.rank:
+        raise RankError("RANK ERROR")
+
+    if arr.rank == k:
+        yield enclose(arr)
+
+    # Shape and bound of result
+    rsh = arr.shape[:arr.rank-k]
+    rbnd = math.prod(rsh)
+
+    # Shape and bound of each cell
+    csh = arr.shape[arr.rank-k:]
+    cbnd = math.prod(csh)
+
+    for cell in range(rbnd):
+        data = arr.data[cell*cbnd:(cell+1)*cbnd]
+        yield Array(csh, arr.type, arr.array_type, data) # type: ignore
 
 def encode(shape: Sequence[int], idx: int) -> Sequence[int]:
     """
@@ -285,6 +302,59 @@ def coords(shape: Sequence[int], IO: int = 0) -> Iterator[Sequence[int]]:
             coords[axis-1] += 1
             axis -= 1
         yield coords[:]
+
+def index_cell(arr: Array, ind: Sequence[int]) -> Array:
+    """
+    Collapse the first rank-len(index) axes at a single index along each of them.
+
+    Beginnings of squad.
+
+    >>> import math
+    >>> shape = [3, 4, 5]
+    >>> a = Aflat(shape, range(math.prod(shape)))
+    >>> index_cell(a, [1])
+    A([4, 5], UINT8, FLAT, [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39])
+    """
+    if not ind or len(ind) > arr.rank:
+        raise RankError("RANK ERROR")
+
+    # Shape and bound of cell
+    rank = arr.rank - len(ind)
+    csh = arr.shape[len(ind):]
+    cbnd = math.prod(csh)
+
+    # Fix the indices given by ind in our shape
+    rr = [0 for _ in range(len(arr.shape))]
+    for i, e in enumerate(ind):
+        rr[i] = e
+
+    # Find the start of this cell
+    pos = decode(arr.shape, rr)
+    data = arr.data[pos:pos+cbnd]
+
+    return Array(csh, arr.type, arr.array_type, data) # type: ignore
+    
+def match(alpha: Array, omega: Array) -> bool:
+    if not isnested(alpha) and not isnested(omega) and alpha.shape == omega.shape:
+        if alpha.type == omega.type:
+            return alpha.data == omega.data
+        return all(alpha.data[i] == omega.data[i] for i in range(alpha.bound))
+
+    if alpha.shape != omega.shape:
+        return False
+
+    if not alpha.shape: # Simple scalar, or enclosed something
+        if isinstance(alpha.data[0], Array):
+            return match(alpha.data[0], omega.data[0]) # type: ignore
+        else:
+            return alpha.data[0] == omega.data[0]
+
+    for i in range(alpha.bound):
+        a = disclose(alpha.data[i])
+        b = disclose(omega.data[i])
+        if not match(a, b):
+            return False
+    return True
 
 if __name__ == "__main__":
     # To run the doctests (verbosely), do 

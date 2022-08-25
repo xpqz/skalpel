@@ -14,6 +14,7 @@ def main():
     session = PromptSession()
     parser = Parser()
     env = {}
+    style = 'apl'
 
     print(f'Welcome to skalpel "APL". (c) 2022 xpqz, MIT LICENSE. C-d to quit')
     while True:
@@ -32,6 +33,15 @@ def main():
             clear()
             print('Environment reset')
             continue
+
+        if src == ')py':
+            style = 'python'
+            continue
+
+        if src == ')apl':
+            style = 'apl'
+            continue
+        
 
         try:
             ast = parser.parse(src)
@@ -52,10 +62,13 @@ def main():
         # If the stack isn't empty, show its final result
         if stack.stackptr == 0: # Single element
             result = stack.pop()[0]
-            try:
-                disp(result)
-            except:
-                print(result)
+            if style == 'python':
+                print(f")py {result}")
+            else:
+                try:
+                    disp(result)
+                except:
+                    print(f"* {result}")
 
 if __name__=="__main__":
     main()

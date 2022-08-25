@@ -12,7 +12,7 @@ for known formatting errors.
 """
 from typing import Sequence
 from functools import reduce
-from apl.arr import Array, issimple, disclose, coords
+from apl.arr import Array, issimple, disclose, coords, kcells
 
 def encase_vector(res: list, nested: bool) -> list:
     """
@@ -126,12 +126,12 @@ def _format(a: Array, frame: bool=True) -> list:
     res = []
     nested = False
     for c in coords(a.shape):
-        cell = a.get(c)
+        cell = disclose(a.get(c))
         if issimple(cell): # simple scalar
             res.append([(str(cell.data[0]).replace('-', '¯'))])
         else:
             nested = True
-            res.append(box(disclose(cell)))
+            res.append(box(cell))
 
     return encase(a.shape, res, nested, frame)
 
@@ -155,7 +155,7 @@ def box(mat: Array) -> list:
     # axes indicated by vertical 'bars' running down the left side.
 
     bars = len(mat.shape[:-2])
-    cells = [_format(c, False) for c in mat.kcells(2)]
+    cells = [_format(c, False) for c in kcells(mat, 2)]
 
     # cols = len(cells[0][0])
 
