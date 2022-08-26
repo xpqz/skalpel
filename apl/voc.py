@@ -2,9 +2,11 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
-from math import prod
+import math
 import operator
 from typing import Any, Callable, Optional, Sequence, TypeAlias
+
+from bitarray import bitarray
 
 import apl.arr as arr
 from apl.errors import ArityError, DomainError, LengthError, NYIError, RankError
@@ -23,7 +25,7 @@ class Operator:
     left: Arity                     # Arity of left operand
     right: Optional[Arity] = None   # Arity of right operand, if I am dyadic
 
-def mpervade(f: Callable) -> Callable:
+def mpervade(f: Callable, direct: bool=False) -> Callable:
     """
     Pervade a simple function f into omega
 
@@ -34,14 +36,15 @@ def mpervade(f: Callable) -> Callable:
         Case 0: +2           
         Case 1: +1 ¯2 0
         """
-        if omega.array_type == arr.ArrayType.FLAT:            
-            d = list(map(f, omega.data)) # type: ignore
+        if omega.array_type == arr.ArrayType.FLAT:
+            if direct and omega.type == arr.DataType.UINT1: # Optimise for boolean arrays if we can
+                return arr.Array(omega.shape, arr.DataType.UINT1, arr.ArrayType.FLAT, f(omega.data))
             return arr.Aflat(omega.shape, list(map(f, omega.data))) 
         return arr.A(omega.shape, [pervaded(arr.disclose(x)) for x in omega.data]) # type: ignore
 
     return pervaded
 
-def pervade(f: Callable) -> Callable:
+def pervade(f: Callable, direct: bool=False) -> Callable:
     """
     Pervade a simple function f into either arguments of equal shapes, 
     or between a scalar and an argument of any shape.
@@ -67,6 +70,8 @@ def pervade(f: Callable) -> Callable:
 
         if alpha.array_type == arr.ArrayType.FLAT and omega.array_type == arr.ArrayType.FLAT:
             if alpha.shape == omega.shape:
+                if direct and alpha.type == arr.DataType.UINT1 and omega.type == arr.DataType.UINT1: # be fast if we can
+                    return arr.Array(alpha.shape, arr.DataType.UINT1, arr.ArrayType.FLAT, f(alpha.data, omega.data))
                 return arr.Aflat(alpha.shape, [f(alpha.data[i], omega.data[i]) for i in range(alpha.bound)])
             if alpha.shape == []:
                 return arr.Aflat(omega.shape, [f(alpha.data[0], omega.data[i]) for i in range(omega.bound)])
@@ -230,7 +235,7 @@ def transpose(alpha: Sequence[int], omega: arr.Array) -> arr.Array:
         repeated_axes = _repeated(alpha)
 
     new_shape = _reorder_axes(alpha, omega.shape)
-    newdata = [0]*prod(new_shape)
+    newdata = [0]*math.prod(new_shape)
     for idx, cvec in enumerate(arr.coords(omega.shape)):
         if repeated_axes and _skip(repeated_axes, cvec):
             continue
@@ -301,9 +306,9 @@ def _reduce(*, operand: Callable, axis: int, omega: arr.Array) -> arr.Array:
     if axis >= omega.rank:
         raise RankError
 
-    n0 = prod(omega.shape[:axis])             # prouct of dims before axis
+    n0 = math.prod(omega.shape[:axis])             # prouct of dims before axis
     n1 = omega.shape[axis]                    # reduction axis size
-    n2 = prod(omega.shape[axis+1:omega.rank]) # product of dims after axis
+    n2 = math.prod(omega.shape[axis+1:omega.rank]) # math.product of dims after axis
 
     shape = omega.shape[:]; del shape[axis]   # new shape is old shape with the reducing axis removed
     ravel = [0 for _ in range(n0*n2)]
@@ -401,20 +406,55 @@ def member(alpha: arr.Array, omega: arr.Array) -> arr.Array:
     result = []
     for ac in arr.coords(alpha.shape):
         cell_a = arr.disclose(alpha.get(ac))
-        found = False
+        found = 0
         for oc in arr.coords(omega.shape):
             cell_o = arr.disclose(omega.get(oc))
             if arr.match(cell_a, cell_o):
-                found = True
+                found = 1
                 break
         result.append(found)
 
-    return arr.Array(alpha.shape, arr.DataType.UINT1, arr.ArrayType.FLAT, result)
+    return arr.Array(alpha.shape, arr.DataType.UINT1, arr.ArrayType.FLAT, bitarray(result))
                 
-
-    
 def tally(omega: arr.Array) -> arr.Array:
     return arr.S(len(omega.data))
+
+def or_gcd(alpha: arr.Array, omega: arr.Array) -> arr.Array:
+    if alpha.type == omega.type == arr.DataType.UINT1:
+        f = pervade(lambda x, y:x|y, direct=True)
+    else:
+        f = pervade(math.gcd)
+    return f(alpha, omega)
+
+def and_lcm(alpha: arr.Array, omega: arr.Array) -> arr.Array:
+    if alpha.type == omega.type == arr.DataType.UINT1:
+        f = pervade(lambda x, y:x&y, direct=True)
+    else:
+        f = pervade(math.lcm)
+    return f(alpha, omega)
+
+def bool_not(omega: arr.Array) -> arr.Array:
+    if omega.type != arr.DataType.UINT1:
+        raise DomainError("DOMAIN ERROR: expected boolean array")
+    f = mpervade(lambda y:~y)
+    return f(omega)
+
+def replicate(alpha: arr.Array, omega: arr.Array) -> arr.Array:
+    if alpha.rank != 1 or alpha.array_type != arr.ArrayType.FLAT or alpha.type != arr.DataType.UINT1:
+        raise DomainError('DOMAIN ERROR: left side must be Boolean vector') # for now. Dyalog allows non-Boolean left
+    return arr.V([omega.data[c] for c in range(omega.bound) if alpha.data[c] == 1])
+
+def without(alpha: arr.Array, omega: arr.Array) -> arr.Array:
+    if alpha.rank > 1 or omega.rank > 1:
+        raise RankError('RANK ERROR: dyadic ~ requires argument arrays to be max rank 1')
+
+    if alpha.array_type == omega.array_type == arr.ArrayType.FLAT:
+        return arr.V(list(set(alpha.data)-set(omega.data))) # recent pythons retain set ordering
+
+    # For nested vectors, we need to be slow, sadly -- Arrays aren't hashable
+    mask = member(alpha, omega)
+    mask.data = ~mask.data
+    return replicate(mask, alpha)    
 
 class Voc:
     """
@@ -423,6 +463,9 @@ class Voc:
     """
     funs: dict[str, Signature] = { 
         #--- Monadic-----------------------Dyadic----------------
+        '~': (bool_not,                    without),
+        '∨': (None,                        or_gcd),
+        '∧': (None,                        and_lcm),
         '∊': (enlist,                      member),
         '⍉': (lambda y: transpose([], y),  lambda x, y: transpose(x.to_list(), y)),
         '⍴': (lambda y: rho(None, y),      rho),

@@ -72,22 +72,11 @@ class TestReduce:
         r = reduce_first('+', None, None, arr.A([2, 2], [1, 2, 3, 4]))
         assert arr.match(r, arr.V([4, 6]))
 
-# class TestSquad:
-#     def test_squad_single_cell(self):
-#         a = squad(alpha=Vector([1]), omega=Array([2, 2], [1, 2, 3, 4]))
-#         assert a.rank == 1
-#         assert a.data == [3, 4]
+class TestBitwise:
+    def test_or(self):
+        bwo = pervade(lambda x, y:x|y)
+        a = arr.V([1, 0, 1, 0])
+        b = arr.V([0, 1, 0, 1])
+        c = bwo(a, b)
+        assert arr.match(c, arr.V([1, 1, 1, 1]))
 
-#     def test_squad_recursive(self):
-#         cells = Vector([1, 1])
-#         data = Array([2, 2], [1, 2, 3, 4])
-#         a = squad(alpha=cells, omega=data)
-#         assert a.rank == 0
-#         assert a.data == [4]
-        
-#     def test_squad_higher_rank(self):
-#         cells = Vector([1, 2])
-#         data = Array([2, 3, 4], list(range(2*3*4)))
-#         a = squad(alpha=cells, omega=data)
-#         assert a.rank == 1
-#         assert a.data == [20, 21, 22, 23]

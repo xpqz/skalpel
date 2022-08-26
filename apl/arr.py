@@ -25,21 +25,32 @@ class ArrayType(Enum):
 
 class Array:
 
-    def __init__(self, shape: list[int], data_type: DataType, array_type: ArrayType, data: Sequence) -> None:
+    def __init__(self, shape: list[int], data_type: DataType, array_type: ArrayType, data: bitarray|bytearray|list) -> None:
+        """
+        Raw init -- does no validation or data conversion, bar calculating rank and bound.
+        """
         self.shape = shape
         self.rank = len(shape)
         self.bound = math.prod(shape)
-        self.data: bitarray|bytearray|list # array implementation provider. This confuses mypy in places
+        self.data = data
         self.type = data_type
         self.array_type = array_type
 
-        d = list(itertools.islice(itertools.cycle(data), self.bound)) # note: can be sub-Arrays
-        self.data = d
+    @classmethod
+    def from_sequence(cls, shape: list[int], data_type: DataType, array_type: ArrayType, data: Sequence):
+        """
+        from_sequence builds an array from a sequence of things, including other arrays:
+
+        1. Pick ×/shape elements from data (repeating, if necessary).
+        2. Select an array provider (currently one of: bitarray, bytearray or list) based on data_type
+        """
+        d = list(itertools.islice(itertools.cycle(data), math.prod(shape))) # note: can be sub-Arrays
         if array_type == ArrayType.FLAT:
             if data_type == DataType.UINT1:
-                self.data = bitarray(d)
+                return cls(shape, data_type, array_type, bitarray(d))
             elif data_type == DataType.UINT8:
-                self.data = bytearray(d)
+                return cls(shape, data_type, array_type, bytearray(d))
+        return cls(shape, data_type, array_type, d)
 
     def __repr__(self):
         return self.__str__()
@@ -52,11 +63,8 @@ class Array:
         else:
             data = self.data
 
-        if self.shape == []:
-            if isinstance(self.data[0], Array): # Enclosed
-                return f"<{data[0]}>"
-            else:
-                return f"<{data[0]}>"           # Simple scalar
+        if not self.shape:                      # Enclosed/scalar
+            return f"<{data[0]}>"
 
         if self.rank == 1:                      # Vector
             return f"V({self.type}, {self.array_type}, {data})"      
@@ -67,9 +75,6 @@ class Array:
         """
         Get item at coords.
         """
-        if self.rank == 0:
-            raise RankError('RANK ERROR: cannot index scalars')
-
         idx = decode(self.shape, coords)
         return self.data[idx]        
 
@@ -118,40 +123,44 @@ def A(shape: list[int], items: Sequence) -> Array:
         for e in items
     ]
 
-    return Array(shape, DataType.MIXED, ArrayType.NESTED, data) # type: ignore
+    return Array.from_sequence(shape, DataType.MIXED, ArrayType.NESTED, data) # type: ignore
 
 def Aflat(shape: list[int], data: Sequence) -> Array:
     """
     Given a sequence of scalars, make a flat array of the narrowest data type
-    into which it will fit.
+    into which it will fit. If data contains other arrays, Aflat will throw
+    a ValueError.
     """
     if any(isinstance(e, Array) for e in data):
         raise ValueError
 
     if any(isinstance(e, complex) for e in data):
-        return Array(shape, DataType.CMPLX, ArrayType.FLAT, data) # type: ignore
+        return Array.from_sequence(shape, DataType.CMPLX, ArrayType.FLAT, data)
 
     if all(isinstance(e, str) for e in data):
-        return Array(shape, DataType.UTF, ArrayType.FLAT, data) # type: ignore
+        return Array.from_sequence(shape, DataType.UTF, ArrayType.FLAT, data)
 
     if all(isinstance(e, int) for e in data):
         max_val = max(data)
         min_val = min(data)
 
         if min_val in [0, 1] and max_val in [0, 1]:
-            return Array(shape, DataType.UINT1, ArrayType.FLAT, data) # type: ignore
+            return Array.from_sequence(shape, DataType.UINT1, ArrayType.FLAT, data)
 
         if min_val in range(256) and max_val in range(256):
-            return Array(shape, DataType.UINT8, ArrayType.FLAT, data) # type: ignore
+            return Array.from_sequence(shape, DataType.UINT8, ArrayType.FLAT, data)
 
-        return Array(shape, DataType.NUM, ArrayType.FLAT, data) # type: ignore
+        return Array.from_sequence(shape, DataType.NUM, ArrayType.FLAT, data)
 
     if all(isinstance(e, (int, float)) for e in data):
-        return Array(shape, DataType.NUM, ArrayType.FLAT, data) # type: ignore
+        return Array.from_sequence(shape, DataType.NUM, ArrayType.FLAT, data)
 
-    return Array(shape, DataType.MIXED, ArrayType.FLAT, data) # type: ignore
+    return Array.from_sequence(shape, DataType.MIXED, ArrayType.FLAT, data)
 
 def S(data: Any) -> Array:
+    """
+    Create a scalar.
+    """
     if isinstance(data, Sequence):
         raise RankError
 
@@ -159,26 +168,26 @@ def S(data: Any) -> Array:
         return data
 
     if isinstance(data, Array):
-        return Array([], data.type, ArrayType.NESTED, [data])
+        return Array.from_sequence([], data.type, ArrayType.NESTED, [data])
 
     if isinstance(data, int):
         if data in range(2):
-            return Array([], DataType.UINT1, ArrayType.FLAT, [data])
+            return Array.from_sequence([], DataType.UINT1, ArrayType.FLAT, [data])
         if data in range(256):
-            return Array([], DataType.UINT8, ArrayType.FLAT, [data])
-        return Array([], DataType.NUM, ArrayType.FLAT, [data])
+            return Array.from_sequence([], DataType.UINT8, ArrayType.FLAT, [data])
+        return Array.from_sequence([], DataType.NUM, ArrayType.FLAT, [data])
 
     if isinstance(data, float):
-        return Array([], DataType.NUM, ArrayType.FLAT, [data])
+        return Array.from_sequence([], DataType.NUM, ArrayType.FLAT, [data])
 
     if isinstance(data, str) and len(data) == 1:
-        return Array([], DataType.UTF, ArrayType.FLAT, [data])
+        return Array.from_sequence([], DataType.UTF, ArrayType.FLAT, [data])
     else:
         raise ValueError
 
 def V(data: Sequence) -> Array:
     """
-    Convenience constructor. Try to squeeze into smallest data width 
+    Convenience vector constructor. Try to squeeze into smallest data width 
     if not nested.
     """
     flattened = []
@@ -208,7 +217,7 @@ def isnested(a: Any) -> bool:
     return a.array_type == ArrayType.NESTED
 
 def enclose(arr: Array) -> Array:
-    return Array([], arr.type, ArrayType.NESTED, [arr])
+    return Array.from_sequence([], arr.type, ArrayType.NESTED, [arr])
 
 def disclose(arr: Any) -> Array:
     if isinstance(arr, Array):
@@ -237,7 +246,7 @@ def kcells(arr: Array, k: int) -> Iterator[Array]:
 
     for cell in range(rbnd):
         data = arr.data[cell*cbnd:(cell+1)*cbnd]
-        yield Array(csh, arr.type, arr.array_type, data) # type: ignore
+        yield Array.from_sequence(csh, arr.type, arr.array_type, data) # type: ignore
 
 def encode(shape: Sequence[int], idx: int) -> Sequence[int]:
     """
@@ -332,7 +341,7 @@ def index_cell(arr: Array, ind: Sequence[int]) -> Array:
     pos = decode(arr.shape, rr)
     data = arr.data[pos:pos+cbnd]
 
-    return Array(csh, arr.type, arr.array_type, data) # type: ignore
+    return Array.from_sequence(csh, arr.type, arr.array_type, data) # type: ignore
     
 def match(alpha: Array, omega: Array) -> bool:
     if not isnested(alpha) and not isnested(omega) and alpha.shape == omega.shape:
