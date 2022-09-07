@@ -2,6 +2,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
+import itertools
 import math
 import operator
 from typing import Any, Callable, Optional, Sequence, TypeAlias
@@ -440,10 +441,14 @@ def bool_not(omega: arr.Array) -> arr.Array:
     return f(omega)
 
 def replicate(alpha: arr.Array, omega: arr.Array) -> arr.Array:
-    if alpha.rank != 1 or alpha.array_type != arr.ArrayType.FLAT or alpha.type != arr.DataType.UINT1:
-        raise DomainError('DOMAIN ERROR: left side must be Boolean vector') # for now. Dyalog allows non-Boolean left
-    return arr.V([omega.data[c] for c in range(omega.bound) if alpha.data[c] == 1])
+    if alpha.rank != 1 or alpha.array_type != arr.ArrayType.FLAT:
+        raise DomainError('DOMAIN ERROR')
+    if alpha.type == arr.DataType.UINT1: # compress
+        return arr.V([arr.disclose(omega.data[c]) for c in range(omega.bound) if alpha.data[c] == 1])
 
+    # Replicate. NOTE: may need to disclose ⍺, too
+    return arr.V(list(itertools.chain.from_iterable(itertools.repeat(arr.disclose(omega.data[i]), alpha.data[i]) for i in range(alpha.bound))))
+    
 def without(alpha: arr.Array, omega: arr.Array) -> arr.Array:
     if alpha.rank > 1 or omega.rank > 1:
         raise RankError('RANK ERROR: dyadic ~ requires argument arrays to be max rank 1')
@@ -453,7 +458,7 @@ def without(alpha: arr.Array, omega: arr.Array) -> arr.Array:
 
     # For nested vectors, we need to be slow, sadly -- Arrays aren't hashable
     mask = member(alpha, omega)
-    mask.data = ~mask.data
+    mask.data = ~mask.data # type: ignore
     return replicate(mask, alpha)    
 
 class Voc:

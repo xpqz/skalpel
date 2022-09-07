@@ -65,7 +65,7 @@ def main() -> None:
     failed = []
     succeeded = []
     for t in tests:
-        print(t)
+        # print(t)
         if " ←→ " in t:
             data = t.split(" ←→ ")
             if not compare(data[0], data[1]):
@@ -86,7 +86,8 @@ def main() -> None:
                 print(f"succeeded: {t}")
                 succeeded.append(t)
         else:
-            print(f"Malformed test: {t}")
+            pass
+            # print(f"Malformed test: {t}")
 
     print(f'failed:    {len(failed)}\nsucceeded: {len(succeeded)}')
 

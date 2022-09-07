@@ -1,7 +1,7 @@
 from math import prod
 
 import apl.arr as arr
-from apl.voc import pervade, transpose, reduce_first
+from apl.voc import pervade, transpose, reduce_first, replicate, without
 
 class TestPervade:
     def test_mat_plus_scalar(self):
@@ -79,4 +79,37 @@ class TestBitwise:
         b = arr.V([0, 1, 0, 1])
         c = bwo(a, b)
         assert arr.match(c, arr.V([1, 1, 1, 1]))
+
+class TestReplicate:
+    def test_compress_flat(self):
+        a = arr.V([1, 0, 1, 0, 1])
+        b = arr.V([301, 32, 76, 87, 1])
+        c = replicate(a, b)
+        assert arr.match(c, arr.V([301, 76, 1]))
+
+    def test_compress_nested(self):
+        a = arr.V([1, 0, 1, 0, 1])
+        b = arr.V([301, 32, arr.V([76, 43, 1]), 87, 1])
+        c = replicate(a, b)
+        assert arr.match(c, arr.V([301, arr.V([76, 43, 1]), 1]))
+
+    def test_replicate_flat(self):
+        a = arr.V([2, 0, 3, 0, 1])
+        b = arr.V([301, 32, 76, 87, 1])
+        c = replicate(a, b)
+        assert arr.match(c, arr.V([301, 301, 76, 76, 76, 1]))
+
+    def test_replicate_nested(self):
+        a = arr.V([2, 0, 3, 0, 1])
+        b = arr.V([arr.V([76, 43, 1]), 32, 76, 87, 1])
+        c = replicate(a, b)
+        assert arr.match(c, arr.V([arr.V([76, 43, 1]), arr.V([76, 43, 1]), 76, 76, 76, 1]))
+
+class TestWithout:
+    def test_without(self):
+        a = arr.V([1, 2, 3, 4, 5])
+        b = without(a, arr.V([2, 4]))
+        assert arr.match(b, arr.V([1, 3, 5]))
+
+
 
