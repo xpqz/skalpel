@@ -3,19 +3,24 @@ from apl.errors import UnexpectedToken
 from apl.node import Node, NodeType
 from apl.tokeniser import Token, Tokeniser, TokenType
 
-SCALARS = [TokenType.SCALAR, TokenType.NAME]
+SCALARS = [TokenType.SCALAR, TokenType.NAME, TokenType.ALPHA, TokenType.OMEGA]
 DYADIC_OPS = set('⍥@⍣⍤∘.⌺⍠') # FIXME: this should use apl.voc!!
 MONADIC_OPS = set('\\/⌿⍀¨⍨')
 
 class Parser:
     """
+    Helpful resources for grammar experiments:
+
+    https://mdkrajnak.github.io/ebnftest/
+    https://www.bottlecaps.de/rr/ui
+
     chunk      ::= EOF statements
     statements ::= (statement DIAMOND)* statement
-    statement  ::= ( ID GETS | vector function | function )* vector
+    statement  ::= ( ID GETS | vector function | function )* vector?
     function   ::= function MOP | function DOP f | f
-    f          ::= FUN | LPARENS function RPARENS | dfn
+    f          ::= FUN | LPAREN function RPAREN | dfn
     dfn        ::= LBRACE statements RBRACE
-    vector     ::= vector* ( scalar | ( LPARENS statement RPARENS ) )
+    vector     ::= vector* ( scalar | ( LPAREN statement RPAREN ) )
     scalar     ::= INTEGER | FLOAT | ID | ALPHA | OMEGA
     """
 
@@ -44,7 +49,7 @@ class Parser:
     def expect_token(self, toktype: TokenType) -> Token:
         tok = self.eat_token()
         if tok.kind != toktype:
-            raise UnexpectedToken("SYNTAX ERROR")
+            raise UnexpectedToken(f"SYNTAX ERROR: expected {toktype}, found {tok.kind}")
         return tok
 
     def parse(self, chunk: str) -> Optional[Node]:
@@ -65,47 +70,71 @@ class Parser:
         while self.token().kind == TokenType.DIAMOND:
             self.eat_token()
             statements.append(self.parse_statement())
-        # return statements
         return statements[::-1] # NOTE: statements separated by diamond should be interpreted top to bottom
 
     def parse_statement(self) -> Node:
         """
-        statement  ::= ( ID GETS | vector function | function )* vector
+        statement  ::= ( ID GETS | vector function | function )* vector?
         """
-        node = self.parse_vector()
-        while (kind := self.token().kind) in [TokenType.FUN, TokenType.OPERATOR, TokenType.GETS]:
+        if self.token().kind in SCALARS + [TokenType.RPAREN]:
+            node = self.parse_vector()
+        else:
+            node = None
+
+        while (kind := self.token().kind) in [TokenType.FUN, TokenType.OPERATOR, TokenType.GETS, TokenType.RBRACE]:
             if kind == TokenType.GETS:
                 gets = self.expect_token(TokenType.GETS)
+                if node is None: 
+                    raise SyntaxError
                 node = Node(NodeType.GETS, gets, [self.parse_identifier(), node])
             else:
                 fun = self.parse_function()
-                if self.token().kind in SCALARS+[TokenType.RPAREN]:
-                    node = Node(NodeType.DYADIC, None, [fun, self.parse_vector(), node]) # Dyadic application of fun
+                if node is None:
+                    node = fun
                 else:
-                    node = Node(NodeType.MONADIC, None, [fun, node])                    # Monadic application of fun
-        return node
+                    if self.token().kind in SCALARS+[TokenType.RPAREN]:
+                        node = Node(NodeType.DYADIC, None, [fun, self.parse_vector(), node]) # Dyadic application of fun
+                    else:
+                        node = Node(NodeType.MONADIC, None, [fun, node])                    # Monadic application of fun
+        return node  # type: ignore
 
     def parse_identifier(self) -> Node:
         return Node(NodeType.ID, self.expect_token(TokenType.NAME))
 
     def parse_function(self) -> Node:
+        """
+        function ::= function MOP | function DOP f | f
+        """
         if self.token().tok in MONADIC_OPS:
             op = self.expect_token(TokenType.OPERATOR)
             return Node(NodeType.MOP, op, [self.parse_function()])
         else:
-            fun = self.parse_simple_fun()
+            fun = self.parse_f()
             if self.token().tok in DYADIC_OPS:
                 op = self.expect_token(TokenType.OPERATOR)
                 return Node(NodeType.DOP, op, [self.parse_function(), fun])
             return fun
 
-    def parse_simple_fun(self) -> Node:
+    def parse_f(self) -> Node:
+        """
+        f ::= FUN | LPAREN function RPAREN | dfn
+        """
         if self.token().kind == TokenType.FUN:
             return Node(NodeType.FUN, self.expect_token(TokenType.FUN))
-        self.expect_token(TokenType.RPAREN)
-        fun = self.parse_function()
-        self.expect_token(TokenType.LPAREN)
-        return fun
+        if self.token().kind == TokenType.RPAREN:
+            self.expect_token(TokenType.RPAREN)
+            fun = self.parse_function()
+            self.expect_token(TokenType.LPAREN)
+            return fun
+        if self.token().kind == TokenType.RBRACE:
+            return self.parse_dfn()
+        raise SyntaxError("SYNTAX ERROR: expected a function")
+
+    def parse_dfn(self) -> Node:
+        self.expect_token(TokenType.RBRACE)
+        statements = self.parse_statements()
+        self.expect_token(TokenType.LBRACE)
+        return Node(NodeType.DFN, None, statements)
 
     def parse_vector(self) -> Node:
         nodes = []
@@ -127,4 +156,8 @@ class Parser:
     def parse_scalar(self) -> Node:
         if self.token().kind == TokenType.NAME:
             return self.parse_identifier()
+
+        if self.token().kind in [TokenType.ALPHA, TokenType.OMEGA]:
+            return Node(NodeType.ARG, self.eat_token())
+
         return Node(NodeType.SCALAR, self.expect_token(TokenType.SCALAR))

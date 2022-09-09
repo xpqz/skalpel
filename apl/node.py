@@ -12,6 +12,8 @@ class NodeType(Enum):
     MOP = auto()
     DOP = auto()
     FUN = auto()
+    DFN = auto()
+    ARG = auto()
     DYADIC = auto()
     MONADIC = auto()
     VECTOR = auto()
@@ -179,6 +181,8 @@ class Node:
         return None
 
     def __str__(self):
+        if self.kind == NodeType.ARG:
+            return f"ARG({self.main_token.tok})"
         if self.kind == NodeType.SCALAR:
             return f"SCALAR({self.main_token.tok})"
         if self.kind == NodeType.FUN:
@@ -205,3 +209,8 @@ class Node:
             for sc in self.children:
                 body.append(str(sc))
             return f"CHNK[{', '.join(body)}]"
+        if self.kind == NodeType.DFN:
+            body = []
+            for sc in self.children:
+                body.append(str(sc))
+            return f"DFN[{', '.join(body)}]"

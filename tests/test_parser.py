@@ -67,5 +67,26 @@ class TestParser:
         ast = parser.parse(src)
         assert "CHNK[DYADIC(DOP('⍥', FUN(⌊), FUN(≢)), VEC[SCALAR(1), SCALAR(2), SCALAR(3)], VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)])]" == str(ast)
     
+    def test_gets_gets(self):
+        src = "a ← -b ← 3"
+        parser = Parser()
+        ast = parser.parse(src)
+        assert "CHNK[GETS(ID('a'), MONADIC(FUN(-), GETS(ID('b'), SCALAR(3))))]" == str(ast)
     
-    
+    def test_dfn(self):
+        src = "{⍺+⍵}"
+        parser = Parser()
+        ast = parser.parse(src)
+        assert 'CHNK[DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))]]' == str(ast)
+
+    def test_gets_dfn(self):
+        src = "a←{⍺+⍵}"
+        parser = Parser()
+        ast = parser.parse(src)
+        assert "CHNK[GETS(ID('a'), DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))])]" == str(ast)
+
+    def test_gets_dfn_call(self):
+        src = "a←3 {⍺+⍵} 1 2 3 4"
+        parser = Parser()
+        ast = parser.parse(src)
+        assert "CHNK[GETS(ID('a'), DYADIC(DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))], SCALAR(3), VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)]))]" == str(ast)
