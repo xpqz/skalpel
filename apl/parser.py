@@ -13,9 +13,10 @@ class Parser:
     statements ::= (statement DIAMOND)* statement
     statement  ::= ( ID GETS | vector function | function )* vector
     function   ::= function MOP | function DOP f | f
-    f          ::= FUN | LPARENS function RPARENS
+    f          ::= FUN | LPARENS function RPARENS | dfn
+    dfn        ::= LBRACE statements RBRACE
     vector     ::= vector* ( scalar | ( LPARENS statement RPARENS ) )
-    scalar     ::= INTEGER | FLOAT | ID
+    scalar     ::= INTEGER | FLOAT | ID | ALPHA | OMEGA
     """
 
     def __init__(self):
