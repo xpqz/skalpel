@@ -11,6 +11,7 @@ class INSTR(Enum):
     mon=4
     dya=6
     vec=7
+    dfn=8
 
 def run(code:Sequence, env:dict[str, Array], ip:int, stack:Stack) -> None:
     while ip < len(code):

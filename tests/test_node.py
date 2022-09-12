@@ -66,6 +66,42 @@ class TestNode:
         assert instr == [
             INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.dya,  
         ]
+
+    def test_dfn_call(self):
+        src = '1 {⍺+⍵} 2'
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        instr = [line[0] for line in code]
+        assert instr == [
+            INSTR.psh, INSTR.psh, INSTR.get, INSTR.get, INSTR.dya, INSTR.dfn, INSTR.dya
+        ]
+
+    def test_gets_dfn(self):
+        src = 'a←{⍺+⍵}'
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        instr = [line[0] for line in code]
+        assert instr == [
+            INSTR.get, INSTR.get, INSTR.dya, INSTR.dfn, INSTR.set
+        ]
+
+    def test_nested_dfn(self):
+        src = 'a←{⍵ {⍺+⍵} ⍺}'
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        instr = [line[0] for line in code]
+        assert instr == [
+            INSTR.get, INSTR.get, INSTR.get, INSTR.get, INSTR.dya, INSTR.dfn, INSTR.dya, INSTR.dfn, INSTR.set
+        ]
     
+    def test_dfn_instr_count(self):
+        src = '{-⍉2 2⍴⍺ ⍵}'
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        assert code[-1][1] == len(code) - 1
     
     

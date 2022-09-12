@@ -22,6 +22,8 @@ class NodeType(Enum):
 
 NodeList: TypeAlias = list['Node'] # type: ignore
 
+CALLABLE = {NodeType.FUN, NodeType.MOP, NodeType.DOP, NodeType.DFN}
+
 class Node:
     code: list[tuple] = []
 
@@ -42,16 +44,30 @@ class Node:
         else:
             self.children.append(node)
 
-    def emit_monadic_function(self) -> Callable:
-        assert self.kind in [NodeType.FUN, NodeType.MOP, NodeType.DOP]
+    def emit_dfn(self) -> None:
+        state = len(Node.code)
+        if self.children is not None:
+            for sc in self.children:
+                sc.emit()
+        count = len(Node.code)-state
+        Node.code.append((INSTR.dfn, count))
+
+    def emit_monadic_function(self) -> Optional[Callable]:
+        assert self.kind in CALLABLE
         if self.kind == NodeType.FUN:
             return Voc.get_fn(self._mttok(), Arity.MONAD)
+        if self.kind == NodeType.DFN:
+            self.emit_dfn()
+            return None
         return self.emit_derived_monad()
 
-    def emit_dyadic_function(self) -> Callable:
-        assert self.kind in [NodeType.FUN, NodeType.MOP, NodeType.DOP]
+    def emit_dyadic_function(self) -> Optional[Callable]:
+        assert self.kind in CALLABLE
         if self.kind == NodeType.FUN:
             return Voc.get_fn(self._mttok(), Arity.DYAD)
+        if self.kind == NodeType.DFN:
+            self.emit_dfn()
+            return None
         return self.emit_derived_dyad()
 
     def emit_scalar(self) -> None:
@@ -117,9 +133,9 @@ class Node:
     def emit_monadic_call(self) -> None:
         if self.children is None:
             raise EmitError('EMIT ERROR: node has no children')
-        assert self.children[0].kind in [NodeType.FUN, NodeType.MOP, NodeType.DOP]
+        assert self.children[0].kind in CALLABLE
         self.children[1].emit()
-        if self.children[0].kind == NodeType.FUN:
+        if self.children[0].kind in [NodeType.FUN, NodeType.DFN]:
             fn = self.children[0].emit_monadic_function()
         else:
             fn = self.children[0].emit_derived_monad()
@@ -129,10 +145,10 @@ class Node:
     def emit_dyadic_call(self) -> None:
         if self.children is None:
             raise EmitError('EMIT ERROR: node has no children')
-        assert self.children[0].kind in [NodeType.FUN, NodeType.MOP, NodeType.DOP]
+        assert self.children[0].kind in CALLABLE
         self.children[1].emit()
         self.children[2].emit()
-        if self.children[0].kind == NodeType.FUN:
+        if self.children[0].kind in [NodeType.FUN, NodeType.DFN]:
             fn = self.children[0].emit_dyadic_function()
         else:
             fn = self.children[0].emit_derived_dyad()
@@ -155,7 +171,7 @@ class Node:
 
     def emit_chunk(self) -> list:
         if self.children is None:
-            raise EmitError('EMIT ERROR: node has no children')  # NOTE this should bot be an error
+            raise EmitError('EMIT ERROR: node has no children')  # NOTE this should probably not be an error
         for sc in self.children:
             sc.emit()
         return Node.code
@@ -168,7 +184,7 @@ class Node:
             self.emit_dyadic_call()
         elif self.kind == NodeType.GETS:
             self.emit_gets()
-        elif self.kind == NodeType.ID:
+        elif self.kind in [NodeType.ID, NodeType.ARG]:
             self.emit_id()
         elif self.kind == NodeType.MONADIC:
             self.emit_monadic_call()
@@ -176,8 +192,10 @@ class Node:
             self.emit_scalar()
         elif self.kind == NodeType.VECTOR:
             self.emit_vector()
+        elif self.kind == NodeType.DFN:
+            self.emit_dfn()
         else:
-            raise EmitError('EMIT ERROR: Unknown node type')
+            raise EmitError(f'EMIT ERROR: Unknown node type: {self.kind}')
         return None
 
     def __str__(self):
