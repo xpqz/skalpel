@@ -23,3 +23,17 @@ Should be:
 └└~──────────┘
 
 Note: col right-adjustment not correct over 2-cells.
+
+Negative numbers don't always align correctly:
+
+┌→────┐
+↓0  ¯2│
+│¯1 ¯3│
+└~────┘
+
+Should be:
+
+┌→────┐
+↓ 0 ¯2│
+│¯1 ¯3│
+└~────┘
