@@ -90,3 +90,9 @@ class TestParser:
         parser = Parser()
         ast = parser.parse(src)
         assert "CHNK[GETS(ID('a'), DYADIC(DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))], SCALAR(3), VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)]))]" == str(ast)
+
+    def test_gets_dfn_call2(self):
+        src = "1 {⍺+⍵} 2"
+        parser = Parser()
+        ast = parser.parse(src)
+        assert 'CHNK[DYADIC(DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))], SCALAR(1), SCALAR(2))]' == str(ast)

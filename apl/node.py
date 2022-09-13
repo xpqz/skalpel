@@ -46,11 +46,11 @@ class Node:
 
     def emit_dfn(self) -> None:
         state = len(Node.code)
+        Node.code.append((INSTR.dfn, None)) # Place holder
         if self.children is not None:
             for sc in self.children:
                 sc.emit()
-        count = len(Node.code)-state
-        Node.code.append((INSTR.dfn, count))
+        Node.code[state] = (INSTR.dfn, len(Node.code)-state-1)
 
     def emit_monadic_function(self) -> Optional[Callable]:
         assert self.kind in CALLABLE
@@ -134,6 +134,7 @@ class Node:
         if self.children is None:
             raise EmitError('EMIT ERROR: node has no children')
         assert self.children[0].kind in CALLABLE
+
         self.children[1].emit()
         if self.children[0].kind in [NodeType.FUN, NodeType.DFN]:
             fn = self.children[0].emit_monadic_function()
@@ -146,8 +147,10 @@ class Node:
         if self.children is None:
             raise EmitError('EMIT ERROR: node has no children')
         assert self.children[0].kind in CALLABLE
+        
         self.children[1].emit()
         self.children[2].emit()
+        
         if self.children[0].kind in [NodeType.FUN, NodeType.DFN]:
             fn = self.children[0].emit_dyadic_function()
         else:
@@ -184,7 +187,7 @@ class Node:
             self.emit_dyadic_call()
         elif self.kind == NodeType.GETS:
             self.emit_gets()
-        elif self.kind in [NodeType.ID, NodeType.ARG]:
+        elif self.kind in {NodeType.ID, NodeType.ARG}:
             self.emit_id()
         elif self.kind == NodeType.MONADIC:
             self.emit_monadic_call()

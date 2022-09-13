@@ -13,7 +13,7 @@ class INSTR(Enum):
     vec=7
     dfn=8
 
-def run(code:Sequence, env:dict[str, Array], ip:int, stack:Stack) -> None:
+def run(code:list[tuple], env:dict[str, Array], ip:int, stack:Stack, callstack:list[list[tuple]] = []) -> None:
     while ip < len(code):
         (instr, arg) = code[ip]
         ip += 1
@@ -25,11 +25,21 @@ def run(code:Sequence, env:dict[str, Array], ip:int, stack:Stack) -> None:
             if arg not in env:
                 raise ValueError('VALUE ERROR: Undefined name: "{arg}"')
             stack.push([env[arg]])
+        elif instr == INSTR.dfn:
+            callstack.append(code[ip:ip+arg])
+            ip += arg
         elif instr == INSTR.dya:
             (alpha, omega) = stack.pop(2)
-            stack.push([arg(alpha, omega)])
+            if arg is None: # in-line dfn
+                run(callstack.pop(), {'⍺': alpha, '⍵': omega}, 0, stack, callstack)
+            else:
+                stack.push([arg(alpha, omega)])
         elif instr == INSTR.mon:
-            stack.push([arg(stack.pop()[0])])
+            omega = stack.pop()[0]
+            if arg is None: # in-line dfn
+                run(callstack.pop(), {'⍵': omega}, 0, stack, callstack)
+            else:
+                stack.push([arg(omega)])
         elif instr == INSTR.vec:
             stack.push([V(stack.pop(arg))])    
 

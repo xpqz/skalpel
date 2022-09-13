@@ -74,7 +74,7 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            INSTR.psh, INSTR.psh, INSTR.get, INSTR.get, INSTR.dya, INSTR.dfn, INSTR.dya
+            INSTR.psh, INSTR.psh, INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.dya
         ]
 
     def test_gets_dfn(self):
@@ -84,7 +84,7 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            INSTR.get, INSTR.get, INSTR.dya, INSTR.dfn, INSTR.set
+            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set
         ]
 
     def test_nested_dfn(self):
@@ -94,7 +94,7 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            INSTR.get, INSTR.get, INSTR.get, INSTR.get, INSTR.dya, INSTR.dfn, INSTR.dya, INSTR.dfn, INSTR.set
+            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.dya, INSTR.set
         ]
     
     def test_dfn_instr_count(self):
@@ -102,6 +102,6 @@ class TestNode:
         parser = Parser()
         ast = parser.parse(src)
         code = ast.emit()
-        assert code[-1][1] == len(code) - 1
+        assert code[0][1] == len(code) - 1
     
     

@@ -62,3 +62,25 @@ class TestRun:
         result = stack.stack[0]
         assert match(result, S(3))
     
+class TestDfn:
+    def test_inline_call(self):
+        src = "1 {⍺+⍵} 2"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result, S(3))
+
+    def test_nested(self):
+        src = "1 {⍵ {⍺+⍵} ⍺} 2"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result, S(3))
