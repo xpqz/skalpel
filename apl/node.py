@@ -9,6 +9,7 @@ from apl.voc import Arity, derive, Voc
 class NodeType(Enum):
     GETS = auto()
     ID = auto()
+    FREF = auto()
     MOP = auto()
     DOP = auto()
     FUN = auto()
@@ -22,7 +23,7 @@ class NodeType(Enum):
 
 NodeList: TypeAlias = list['Node'] # type: ignore
 
-CALLABLE = {NodeType.FUN, NodeType.MOP, NodeType.DOP, NodeType.DFN}
+CALLABLE = {NodeType.FUN, NodeType.MOP, NodeType.DOP, NodeType.DFN, NodeType.FREF}
 
 class Node:
     code: list[tuple] = []
@@ -45,29 +46,34 @@ class Node:
             self.children.append(node)
 
     def emit_dfn(self) -> None:
-        state = len(Node.code)
-        Node.code.append((INSTR.dfn, None)) # Place holder
-        if self.children is not None:
-            for sc in self.children:
-                sc.emit()
-        Node.code[state] = (INSTR.dfn, len(Node.code)-state-1)
+        if self.kind == NodeType.FREF:
+            Node.code.append((INSTR.dfn, self._mttok())) # reference to dfn
+        else:
+            state = len(Node.code)
+            Node.code.append((INSTR.dfn, None)) # Place holder
+            if self.children is not None:
+                for sc in self.children:
+                    sc.emit()
+            Node.code[state] = (INSTR.dfn, len(Node.code)-state-1)
 
     def emit_monadic_function(self) -> Optional[Callable]:
         assert self.kind in CALLABLE
         if self.kind == NodeType.FUN:
             return Voc.get_fn(self._mttok(), Arity.MONAD)
-        if self.kind == NodeType.DFN:
+        if self.kind in {NodeType.DFN, NodeType.FREF}:
             self.emit_dfn()
             return None
+
         return self.emit_derived_monad()
 
     def emit_dyadic_function(self) -> Optional[Callable]:
         assert self.kind in CALLABLE
         if self.kind == NodeType.FUN:
             return Voc.get_fn(self._mttok(), Arity.DYAD)
-        if self.kind == NodeType.DFN:
+        if self.kind in {NodeType.DFN, NodeType.FREF}:
             self.emit_dfn()
             return None
+
         return self.emit_derived_dyad()
 
     def emit_scalar(self) -> None:
@@ -136,7 +142,7 @@ class Node:
         assert self.children[0].kind in CALLABLE
 
         self.children[1].emit()
-        if self.children[0].kind in [NodeType.FUN, NodeType.DFN]:
+        if self.children[0].kind in [NodeType.FUN, NodeType.DFN, NodeType.FREF]:
             fn = self.children[0].emit_monadic_function()
         else:
             fn = self.children[0].emit_derived_monad()
@@ -151,7 +157,7 @@ class Node:
         self.children[1].emit()
         self.children[2].emit()
         
-        if self.children[0].kind in [NodeType.FUN, NodeType.DFN]:
+        if self.children[0].kind in [NodeType.FUN, NodeType.DFN, NodeType.FREF]:
             fn = self.children[0].emit_dyadic_function()
         else:
             fn = self.children[0].emit_derived_dyad()
@@ -161,7 +167,7 @@ class Node:
     def emit_gets(self) -> None:
         if self.children is None:
             raise EmitError('EMIT ERROR: node has no children')
-        assert self.children[0].kind == NodeType.ID
+        assert self.children[0].kind in {NodeType.ID, NodeType.FREF}
         self.children[1].emit()
         Node.code.append((INSTR.set, self.children[0]._mttok()))
 
@@ -208,6 +214,8 @@ class Node:
             return f"SCALAR({self.main_token.tok})"
         if self.kind == NodeType.FUN:
             return f"FUN({self.main_token.tok})"
+        if self.kind == NodeType.FREF:
+            return f"FREF({self.main_token.tok})"
         if self.kind == NodeType.ID:
             return f"ID('{self.main_token.tok}')"
         if self.kind == NodeType.DYADIC:

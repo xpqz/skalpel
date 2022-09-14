@@ -18,7 +18,7 @@ class Parser:
     statements ::= (statement DIAMOND)* statement
     statement  ::= ( ID GETS | vector function | function )* vector?
     function   ::= function MOP | function DOP f | f
-    f          ::= FUN | LPAREN function RPAREN | dfn
+    f          ::= FUN | LPAREN function RPAREN | dfn | fref
     dfn        ::= LBRACE statements RBRACE
     vector     ::= vector* ( scalar | ( LPAREN statement RPAREN ) )
     scalar     ::= INTEGER | FLOAT | ID | ALPHA | OMEGA
@@ -81,12 +81,15 @@ class Parser:
         else:
             node = None
 
-        while (kind := self.token().kind) in [TokenType.FUN, TokenType.OPERATOR, TokenType.GETS, TokenType.RBRACE]:
+        while (kind := self.token().kind) in [TokenType.FUN, TokenType.OPERATOR, TokenType.GETS, TokenType.RBRACE, TokenType.FNAME]:
             if kind == TokenType.GETS:
                 gets = self.expect_token(TokenType.GETS)
                 if node is None: 
                     raise SyntaxError
-                node = Node(NodeType.GETS, gets, [self.parse_identifier(), node])
+                name = self.parse_identifier()
+                if node.kind in {NodeType.DFN, NodeType.FUN} and name.kind != NodeType.FREF:
+                    raise SyntaxError(f"SYNTAX ERROR: named functions must start with a capital letter: '{name.main_token.tok}'")
+                node = Node(NodeType.GETS, gets, [name, node])
             else:
                 fun = self.parse_function()
                 if node is None:
@@ -99,7 +102,14 @@ class Parser:
         return node  # type: ignore
 
     def parse_identifier(self) -> Node:
-        return Node(NodeType.ID, self.expect_token(TokenType.NAME))
+        tok = self.eat_token()
+        if tok.kind == TokenType.NAME:
+            return Node(NodeType.ID, tok)
+
+        if tok.kind == TokenType.FNAME:
+            return Node(NodeType.FREF, tok)
+
+        raise SyntaxError(f"SYNTAX ERROR: expected a name, got {tok.tok}")
 
     def parse_function(self) -> Node:
         """
@@ -117,17 +127,25 @@ class Parser:
 
     def parse_f(self) -> Node:
         """
-        f ::= FUN | LPAREN function RPAREN | dfn
+        f ::= FUN | LPAREN function RPAREN | dfn | fref
         """
-        if self.token().kind == TokenType.FUN:
+        tok = self.token().kind
+
+        if tok == TokenType.FUN:
             return Node(NodeType.FUN, self.expect_token(TokenType.FUN))
-        if self.token().kind == TokenType.RPAREN:
+
+        if tok == TokenType.RPAREN:
             self.expect_token(TokenType.RPAREN)
             fun = self.parse_function()
             self.expect_token(TokenType.LPAREN)
             return fun
-        if self.token().kind == TokenType.RBRACE:
+
+        if tok == TokenType.RBRACE:
             return self.parse_dfn()
+
+        if tok == TokenType.FNAME:
+            return Node(NodeType.FREF, self.expect_token(TokenType.FNAME))
+
         raise SyntaxError("SYNTAX ERROR: expected a function")
 
     def parse_dfn(self) -> Node:

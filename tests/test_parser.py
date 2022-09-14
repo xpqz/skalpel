@@ -1,3 +1,4 @@
+import pytest 
 from apl.parser import Parser
 
 class TestParser:
@@ -79,11 +80,17 @@ class TestParser:
         ast = parser.parse(src)
         assert 'CHNK[DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))]]' == str(ast)
 
+    def test_gets_dfn_raises(self):
+        src = 'a←{⍺+⍵}'
+        parser = Parser()
+        with pytest.raises(SyntaxError):
+            parser.parse(src)
+
     def test_gets_dfn(self):
-        src = "a←{⍺+⍵}"
+        src = "Add←{⍺+⍵}"
         parser = Parser()
         ast = parser.parse(src)
-        assert "CHNK[GETS(ID('a'), DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))])]" == str(ast)
+        assert 'CHNK[GETS(FREF(Add), DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))])]' == str(ast)
 
     def test_gets_dfn_call(self):
         src = "a←3 {⍺+⍵} 1 2 3 4"
@@ -96,3 +103,15 @@ class TestParser:
         parser = Parser()
         ast = parser.parse(src)
         assert 'CHNK[DYADIC(DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))], SCALAR(1), SCALAR(2))]' == str(ast)
+
+    def test_strand_or_call1(self):
+        src = "1 A 2"
+        parser = Parser()
+        ast = parser.parse(src)
+        assert 'CHNK[DYADIC(FREF(A), SCALAR(1), SCALAR(2))]' == str(ast) 
+
+    def test_strand_or_call2(self):
+        src = "1 a 2"
+        parser = Parser()
+        ast = parser.parse(src)
+        assert "CHNK[VEC[SCALAR(1), ID('a'), SCALAR(2)]]" == str(ast) 

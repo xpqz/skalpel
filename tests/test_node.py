@@ -78,7 +78,7 @@ class TestNode:
         ]
 
     def test_gets_dfn(self):
-        src = 'a←{⍺+⍵}'
+        src = 'A←{⍺+⍵}'
         parser = Parser()
         ast = parser.parse(src)
         code = ast.emit()
@@ -88,7 +88,7 @@ class TestNode:
         ]
 
     def test_nested_dfn(self):
-        src = 'a←{⍵ {⍺+⍵} ⍺}'
+        src = 'A←{⍵ {⍺+⍵} ⍺}'
         parser = Parser()
         ast = parser.parse(src)
         code = ast.emit()
@@ -103,5 +103,16 @@ class TestNode:
         ast = parser.parse(src)
         code = ast.emit()
         assert code[0][1] == len(code) - 1
+
+    def test_apply_fref(self):
+        src = "Add←{⍺+⍵}⋄1 Add 2"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        instr = [line[0] for line in code]
+        assert instr == [
+            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.psh, INSTR.psh, INSTR.dfn, INSTR.dya
+        ]
+        assert code[7][1] == 'Add' # call by reference
     
     

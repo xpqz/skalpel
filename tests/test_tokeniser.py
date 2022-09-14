@@ -54,6 +54,23 @@ class TestTokeniser:
         assert tokens[2].kind == TokenType.SCALAR
         assert tokens[2].tok == 'h'
 
+    def test_function_reference(self):
+        src = "1 Add 2"
+        tokeniser = Tokeniser(src)
+        tokens = tokeniser.lex()
+
+        assert len(tokens) == 4
+        assert tokens[0].kind == TokenType.EOF
+
+        assert tokens[1].kind == TokenType.SCALAR
+        assert tokens[1].tok == 1
+
+        assert tokens[2].kind == TokenType.FNAME
+        assert tokens[2].tok == 'Add'
+
+        assert tokens[3].kind == TokenType.SCALAR
+        assert tokens[3].tok == 2
+
     def test_code(self):
         src = "var ← 1 2 3 4 5 6 7 8 9 ⋄ 3 3⍴var"
         tokeniser = Tokeniser(src)

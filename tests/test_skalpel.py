@@ -87,12 +87,23 @@ class TestDfn:
         assert match(result.payload, S(3))
 
     def test_gets(self):
-        src = "a ← {⍺+⍵}"
+        src = "A ← {⍺+⍵}"
         parser = Parser()
         ast = parser.parse(src)
         code = ast.emit()
         env = {}
         stack = Stack()
         run(code, env, 0, stack)
-        assert 'a' in env
-        assert env['a'].kind == TYPE.dfn
+        assert 'A' in env
+        assert env['A'].kind == TYPE.dfn
+
+    def test_apply_fref(self):
+        src = "Add←{⍺+⍵}⋄1 Add 2"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, S(3))

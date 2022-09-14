@@ -10,6 +10,7 @@ operators = '@⌸⌹⌺⍠⌿⍀∘⍠⍣⍤⍥⍨¨/\\'
 
 class TokenType(Enum):
     NAME = auto()
+    FNAME = auto()
     SCALAR = auto()
     FUN = auto()
     OPERATOR = auto()
@@ -60,6 +61,9 @@ class Tokeniser:
         while self.pos < len(self.chunk) and (self.chunk[self.pos] in alpha or self.chunk[self.pos].isdigit()):
             tok += self.chunk[self.pos]
             self.pos += 1
+
+        if tok[0].isupper(): # Names starting with Upper Case Letter is considered a function reference
+            return Token(TokenType.FNAME, tok)
 
         return Token(TokenType.NAME, tok)
 
