@@ -42,7 +42,6 @@ def main():
             style = 'apl'
             continue
         
-
         try:
             ast = parser.parse(src)
             if ast is None: # Whitespace or comments only
@@ -63,12 +62,12 @@ def main():
         if stack.stackptr == 0: # Single element
             result = stack.pop()[0]
             if style == 'python':
-                print(f")py {result}")
+                print(f")py {result.payload}")
             else:
                 try:
-                    disp(result)
+                    disp(result.payload)
                 except:
-                    print(f"* {result}")
+                    print(f"* {result.payload}")
 
 if __name__=="__main__":
     main()

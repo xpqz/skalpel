@@ -109,7 +109,7 @@ class Node:
         else:
             right = None
 
-        return derive(op.f, left, right, Arity.MONAD)
+        return derive(op.f, left, right, Arity.MONAD)  # type: ignore
 
     def emit_derived_dyad(self) -> Callable:
         op_name = self._mttok()
@@ -134,7 +134,7 @@ class Node:
         else:
             right = None
 
-        return derive(op.f, left, right, Arity.DYAD)
+        return derive(op.f, left, right, Arity.DYAD) # type: ignore
 
     def emit_monadic_call(self) -> None:
         if self.children is None:
@@ -201,12 +201,11 @@ class Node:
             self.emit_scalar()
         elif self.kind == NodeType.VECTOR:
             self.emit_vector()
-        elif self.kind == NodeType.DFN:
+        elif self.kind in {NodeType.DFN, NodeType.FREF}:
             self.emit_dfn()
-        else:
+        else:    
             raise EmitError(f'EMIT ERROR: Unknown node type: {self.kind}')
-        return None
-
+    
     def __str__(self):
         if self.kind == NodeType.ARG:
             return f"ARG({self.main_token.tok})"
