@@ -107,3 +107,15 @@ class TestDfn:
         run(code, env, 0, stack)
         result = stack.stack[0]
         assert match(result.payload, S(3))
+
+    def test_dfn_ref_operand(self):
+        src = "Add←{⍺+⍵}⋄Add/1 2 3 4"
+        # src = "+/1 2 3 4"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, S(10))

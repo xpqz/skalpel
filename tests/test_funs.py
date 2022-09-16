@@ -1,7 +1,7 @@
 from math import prod
 
 import apl.arr as arr
-from apl.voc import pervade, transpose, reduce_first, replicate, without
+from apl.skalpel import pervade, transpose, reduce_first, replicate, without
 
 class TestPervade:
     def test_mat_plus_scalar(self):
@@ -69,7 +69,7 @@ class TestTranspose:
 
 class TestReduce:
     def test_reduce_first(self):
-        r = reduce_first('+', None, None, arr.A([2, 2], [1, 2, 3, 4]))
+        r = reduce_first('+', None, None, arr.A([2, 2], [1, 2, 3, 4]), None, None)
         assert arr.match(r, arr.V([4, 6]))
 
 class TestBitwise:

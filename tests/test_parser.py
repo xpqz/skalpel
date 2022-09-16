@@ -115,3 +115,9 @@ class TestParser:
         parser = Parser()
         ast = parser.parse(src)
         assert "CHNK[VEC[SCALAR(1), ID('a'), SCALAR(2)]]" == str(ast) 
+
+    def test_dfn_ref_operand(self):
+        src = "Add←{⍺+⍵}⋄Add⌿⍳8"
+        parser = Parser()
+        ast = parser.parse(src)
+        assert "CHNK[GETS(FREF(Add), DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))]), MONADIC(MOP('⌿', FREF(Add)), MONADIC(FUN(⍳), SCALAR(8)))]" == str(ast)

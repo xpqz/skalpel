@@ -111,8 +111,27 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.psh, INSTR.psh, INSTR.dfn, INSTR.dya
+            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.psh, INSTR.psh, INSTR.dya
         ]
         assert code[7][1] == 'Add' # call by reference
-    
+
+    def test_dfn_ref_operand(self):
+        src = "A/1 2 3"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        instr = [line[0] for line in code]
+        assert instr == [
+            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.mon
+        ]    
+
+    def test_dfn_ref_operand2(self):    
+        src = "Add←{⍺+⍵}⋄Add/⍳8"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        instr = [line[0] for line in code]
+        assert instr == [
+            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.psh, INSTR.mon, INSTR.mon
+        ]   
     

@@ -1,10 +1,9 @@
 from enum import Enum, auto
 from typing import Callable, Optional, TypeAlias
 
-from apl.errors import ArityError, EmitError
-from apl.skalpel import INSTR
+from apl.errors import ArityError, EmitError, NYIError
 from apl.tokeniser import Token
-from apl.voc import Arity, derive, Voc
+from apl.skalpel import Arity, derive, INSTR, Voc
 
 class NodeType(Enum):
     GETS = auto()
@@ -47,8 +46,9 @@ class Node:
 
     def emit_dfn(self) -> None:
         if self.kind == NodeType.FREF:
-            Node.code.append((INSTR.dfn, self._mttok())) # reference to dfn
-        else:
+            fname = self._mttok()
+            Node.code.append((INSTR.dfn, fname)) # reference to dfn
+        else:        
             state = len(Node.code)
             Node.code.append((INSTR.dfn, None)) # Place holder
             if self.children is not None:
@@ -56,25 +56,39 @@ class Node:
                     sc.emit()
             Node.code[state] = (INSTR.dfn, len(Node.code)-state-1)
 
-    def emit_monadic_function(self) -> Optional[Callable]:
+    def monadic_function(self) -> Callable|str:
         assert self.kind in CALLABLE
-        if self.kind == NodeType.FUN:
-            return Voc.get_fn(self._mttok(), Arity.MONAD)
-        if self.kind in {NodeType.DFN, NodeType.FREF}:
-            self.emit_dfn()
-            return None
 
-        return self.emit_derived_monad()
+        if self.kind in {NodeType.FUN, NodeType.FREF}:
+            return self._mttok()
 
-    def emit_dyadic_function(self) -> Optional[Callable]:
+        # if self.kind == NodeType.FUN:
+        #     return Voc.get_fn(self._mttok(), Arity.MONAD)
+
+        # if self.kind == NodeType.FREF:
+        #     return self._mttok()
+
+        if self.kind == NodeType.DFN:
+            raise NYIError
+
+        return self.derived_monad()
+
+    def dyadic_function(self) -> Callable|str:
         assert self.kind in CALLABLE
-        if self.kind == NodeType.FUN:
-            return Voc.get_fn(self._mttok(), Arity.DYAD)
-        if self.kind in {NodeType.DFN, NodeType.FREF}:
-            self.emit_dfn()
-            return None
 
-        return self.emit_derived_dyad()
+        if self.kind in {NodeType.FUN, NodeType.FREF}:
+            return self._mttok()
+
+        # if self.kind == NodeType.FUN:
+        #     return Voc.get_fn(self._mttok(), Arity.DYAD)
+
+        # if self.kind == NodeType.FREF:
+        #     return self._mttok()
+
+        if self.kind == NodeType.DFN:
+            raise NYIError
+
+        return self.derived_dyad()
 
     def emit_scalar(self) -> None:
         if self.main_token is None:
@@ -86,7 +100,7 @@ class Node:
             raise EmitError('EMIT ERROR: main_token is undefined')
         Node.code.append((INSTR.get, self.main_token.tok))
 
-    def emit_derived_monad(self) -> Callable:
+    def derived_monad(self) -> Callable:
         op_name = self._mttok()
         op = Voc.get_op(op_name)
 
@@ -97,21 +111,21 @@ class Node:
             raise ArityError(f"ARITY ERROR: operator '{op_name}' does not derive a monadic function")
 
         if op.left == Arity.MONAD:
-            left = self.children[0].emit_monadic_function()
+            left = self.children[0].monadic_function()
         else:
-            left = self.children[0].emit_dyadic_function()
+            left = self.children[0].dyadic_function()
 
         if self.kind == NodeType.DOP:
             if op.right == Arity.MONAD:
-                right = self.children[1].emit_monadic_function()
+                right = self.children[1].monadic_function()
             else:
-                right = self.children[1].emit_dyadic_function()
+                right = self.children[1].dyadic_function()
         else:
             right = None
 
         return derive(op.f, left, right, Arity.MONAD)  # type: ignore
 
-    def emit_derived_dyad(self) -> Callable:
+    def derived_dyad(self) -> Callable:
         op_name = self._mttok()
         if self.children is None:
             raise EmitError('EMIT ERROR: node has no children')
@@ -122,15 +136,15 @@ class Node:
             raise ArityError(f"ARITY ERROR: operator '{op_name}' does not derive a dyadic function")
 
         if op.left == Arity.MONAD:
-            left = self.children[0].emit_monadic_function()
+            left = self.children[0].monadic_function()
         else:
-            left = self.children[0].emit_dyadic_function()
+            left = self.children[0].dyadic_function()
 
         if self.kind == NodeType.DOP:
             if op.right == Arity.MONAD:
-                right = self.children[1].emit_monadic_function()
+                right = self.children[1].monadic_function()
             else:
-                right = self.children[1].emit_dyadic_function()
+                right = self.children[1].dyadic_function()
         else:
             right = None
 
@@ -142,10 +156,15 @@ class Node:
         assert self.children[0].kind in CALLABLE
 
         self.children[1].emit()
-        if self.children[0].kind in [NodeType.FUN, NodeType.DFN, NodeType.FREF]:
-            fn = self.children[0].emit_monadic_function()
+        if self.children[0].kind == NodeType.DFN: # in-line dfn
+            self.children[0].emit_dfn()
+            Node.code.append((INSTR.mon, None))
+            return 
+
+        if self.children[0].kind in {NodeType.FUN, NodeType.FREF}:
+            fn = self.children[0].monadic_function()
         else:
-            fn = self.children[0].emit_derived_monad()
+            fn = self.children[0].derived_monad()
 
         Node.code.append((INSTR.mon, fn))
 
@@ -156,11 +175,16 @@ class Node:
         
         self.children[1].emit()
         self.children[2].emit()
+
+        if self.children[0].kind == NodeType.DFN: # in-line dfn WRONG
+            self.children[0].emit_dfn()
+            Node.code.append((INSTR.dya, None))
+            return 
         
-        if self.children[0].kind in [NodeType.FUN, NodeType.DFN, NodeType.FREF]:
-            fn = self.children[0].emit_dyadic_function()
+        if self.children[0].kind in [NodeType.FUN, NodeType.FREF]:
+            fn = self.children[0].dyadic_function()
         else:
-            fn = self.children[0].emit_derived_dyad()
+            fn = self.children[0].derived_dyad()
         
         Node.code.append((INSTR.dya, fn))
 
@@ -185,7 +209,7 @@ class Node:
             sc.emit()
         return Node.code
 
-    def emit(self) -> Optional[list]:
+    def emit(self) -> Optional[list]: # type: ignore
         if self.kind == NodeType.CHUNK:
             Node.code = []
             return self.emit_chunk()

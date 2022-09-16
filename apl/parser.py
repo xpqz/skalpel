@@ -4,7 +4,7 @@ from apl.node import Node, NodeType
 from apl.tokeniser import Token, Tokeniser, TokenType
 
 SCALARS = [TokenType.SCALAR, TokenType.NAME, TokenType.ALPHA, TokenType.OMEGA]
-DYADIC_OPS = set('⍥@⍣⍤∘.⌺⍠') # FIXME: this should use apl.voc!!
+DYADIC_OPS = set('⍥@⍣⍤∘.⌺⍠') # FIXME: this should use Voc!!
 MONADIC_OPS = set('\\/⌿⍀¨⍨')
 
 class Parser:
