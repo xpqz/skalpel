@@ -32,7 +32,7 @@ def eval_apl(src: str) -> Array:
 
     run(code, env, 0, stack)
 
-    return stack.stack[0] # type: ignore
+    return stack.stack[0].payload # type: ignore
 
 
 def compare(a: str, b: str) -> bool:
