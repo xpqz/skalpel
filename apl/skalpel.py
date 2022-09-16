@@ -488,7 +488,19 @@ def index_gen(omega: arr.Array, IO: int=0) -> arr.Array:
     shape = omega.to_list()
     return arr.A(shape, [arr.Aflat([len(c)], c) for c in arr.coords(shape, IO)])
 
-def rho(alpha: Optional[arr.Array],  omega: arr.Array) -> arr.Array:
+def where(omega: arr.Array) -> arr.Array:
+    if omega.type != arr.DataType.UINT1: # for now
+        raise DomainError('DOMAIN ERROR: expected Boolean array')
+
+    if omega.rank == 1:
+        return arr.Aflat([omega.data.count()], omega.data.search(bitarray([True]))) # type: ignore
+
+    return arr.V([
+        arr.Array([omega.rank], arr.DataType.NUM, arr.ArrayType.FLAT, arr.encode(omega.shape, idx)) # type: ignore
+        for idx in omega.data.search(bitarray([True])) # type: ignore
+    ])
+
+def rho(alpha: Optional[arr.Array], omega: arr.Array) -> arr.Array:
     """
     Monadic: shape
     Dyadic: reshape
@@ -614,6 +626,7 @@ class Voc:
         '⍉': (lambda y: transpose([], y),  lambda x, y: transpose(x.to_list(), y)),
         '⍴': (lambda y: rho(None, y),      rho),
         '⍳': (index_gen,                   None),
+        '⍸': (where,                       None),
         '≢': (tally,                       lambda x, y: arr.S(int(not arr.match(x, y)))),
         '≡': (None,                        lambda x, y: arr.S(int(arr.match(x, y)))),
         '⌈': (None,                        pervade(max)),
