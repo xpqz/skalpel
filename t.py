@@ -7,7 +7,7 @@ These tests originate from
 
     https://raw.githubusercontent.com/abrudz/ngn-apl/master/t.apl
 """
-from apl.arr import Array, S, match
+from apl.arr import Array, match
 from apl.errors import SyntaxError, RankError
 from apl.parser import Parser
 from apl.skalpel import run, Value
@@ -32,7 +32,7 @@ def eval_apl(src: str) -> Array:
 
     run(code, env, 0, stack)
 
-    return stack.stack[0].payload # type: ignore
+    return stack.stack[0] # type: ignore
 
 
 def compare(a: str, b: str) -> bool:
