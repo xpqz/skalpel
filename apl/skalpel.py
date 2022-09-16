@@ -59,12 +59,12 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             env[arg] = stack.pop()[0]
         elif instr == INSTR.get:
             if arg not in env:
-                raise ValueError('VALUE ERROR: Undefined name: "{arg}"')
+                raise ValueError(f'VALUE ERROR: Undefined name: "{arg}"')
             stack.push([env[arg]])
         elif instr == INSTR.dfn:
             if type(arg) == str: # by reference
                 if arg not in env:
-                    raise ValueError('VALUE ERROR: Undefined name: "{arg}"')
+                    raise ValueError(f'VALUE ERROR: Undefined name: "{arg}"')
                 f = env[arg]
                 assert f.kind == TYPE.dfn # TODO: also TYPE.fun
                 stack.push([f])

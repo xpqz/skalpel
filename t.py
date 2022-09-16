@@ -69,10 +69,10 @@ def main() -> None:
         if " ←→ " in t:
             data = t.split(" ←→ ")
             if not compare(data[0], data[1]):
-                # print(f"failed: {t}")
+                print(f"failed: {t}")
                 failed.append(t)
             else:
-                print(f"succeeded: {t}")
+                # print(f"succeeded: {t}")
                 succeeded.append(t)
         elif " !! " in t:
             data = t.split(" !! ")
