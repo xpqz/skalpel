@@ -10,7 +10,7 @@ These tests originate from
 from apl.arr import Array, S, match
 from apl.errors import SyntaxError, RankError
 from apl.parser import Parser
-from apl.skalpel import run
+from apl.skalpel import run, Value
 from apl.stack import Stack
 
 EXCEPTIONS = {
@@ -27,12 +27,12 @@ def eval_apl(src: str) -> Array:
     if code is None:
         raise ValueError
 
-    env:dict[str, Array] = {}
+    env:dict[str, Value] = {}
     stack = Stack()
 
     run(code, env, 0, stack)
 
-    return stack.stack[0] # type: ignore
+    return stack.stack[0].payload # type: ignore
 
 
 def compare(a: str, b: str) -> bool:
