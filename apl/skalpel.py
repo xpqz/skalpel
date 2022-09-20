@@ -3,7 +3,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 import itertools
-import math
+import cmath, math
 import operator
 from typing import Any, Callable, Optional, Sequence, TypeAlias
 
@@ -367,6 +367,28 @@ def transpose(alpha: Sequence[int], omega: arr.Array) -> arr.Array:
     
     return arr.Aflat(new_shape, deepcopy(newdata)) # Possibly won't need deepcopy() here.
 
+def each(left: str, right: Optional[str], alpha: Optional[arr.Array],  omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
+    """
+    Each ¨ - monadic operator deriving monad
+    """
+    if right is not None:
+        raise ArityError("'¨' takes no right operand")
+
+    if alpha is not None:
+        raise ArityError("function derived by '¨' takes no left argument")
+
+    if Voc.has_builtin(left):
+        fn = Voc.get_fn(left, Arity.MONAD)
+    else:
+        if left not in env:
+            raise ValueError(f"VALUE ERROR: Undefined name: {left}")
+
+        def fn(o: arr.Array) -> arr.Array:
+            run(env[left].payload, env|{'⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
+            return stack.pop()[0].payload
+
+    return arr.A(omega.shape, [fn(arr.disclose(o)) for o in omega.data])
+
 def reduce(left: str, right: Optional[str], alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
     Outward-facing '/' (trailling axis reduce)
@@ -610,7 +632,108 @@ def without(alpha: arr.Array, omega: arr.Array) -> arr.Array:
     # For nested vectors, we need to be slow, sadly -- Arrays aren't hashable
     mask = member(alpha, omega)
     mask.data = ~mask.data # type: ignore
-    return replicate(mask, alpha)    
+    return replicate(mask, alpha)
+
+def circle(alpha: int, omega: int|float|complex) -> float|complex:
+    """
+     ⍺   ⍺ ○ ⍵         ⍺   ⍺ ○ ⍵     
+                       0   (1-⍵*2)*0.5 
+    ¯1   Arcsin ⍵      1   Sine ⍵ 
+    ¯2   Arccos ⍵      2   Cosine ⍵ 
+    ¯3   Arctan ⍵      3   Tangent ⍵ 
+    ¯4   (¯1+⍵*2)*0.5  4   (1+⍵*2)*0.5 
+    ¯5   Arcsinh ⍵     5   Sinh ⍵ 
+    ¯6   Arccosh ⍵     6   Cosh ⍵ 
+    ¯7   Arctanh ⍵     7   Tanh ⍵ 
+    ¯8   -8○⍵          8   (-1+⍵*2)*0.5 
+    ¯9   ⍵             9   real part of ⍵ 
+    ¯10  +⍵           10   |⍵ 
+    ¯11  ⍵×0J1        11   imaginary part of ⍵ 
+    ¯12  *⍵×0J1       12   phase of ⍵ 
+    """
+
+    # My least favourite part of APL :/
+    if alpha == 1:
+        if isinstance(omega, complex):
+            return cmath.sin(omega)
+        return math.sin(omega)
+    if alpha == -1:
+        if isinstance(omega, complex):
+            return cmath.asin(omega)
+        return math.asin(omega)
+    if alpha == 2:
+        if isinstance(omega, complex):
+            return cmath.cos(omega)
+        return math.cos(omega)
+    if alpha == -2:
+        if isinstance(omega, complex):
+            return cmath.acos(omega)
+        return math.acos(omega)
+    if alpha == 3:
+        if isinstance(omega, complex):
+            return cmath.tan(omega)
+        return math.tan(omega)
+    if alpha == -3:
+        if isinstance(omega, complex):
+            return cmath.atan(omega)
+        return math.atan(omega)
+    if alpha == 4:
+        return math.sqrt(1+omega**2)
+    if alpha == -4:
+        return math.sqrt(-1+omega**2)
+    if alpha == 5:
+        if isinstance(omega, complex):
+            return cmath.sinh(omega)
+        return math.sinh(omega)
+    if alpha == -5:
+        if isinstance(omega, complex):
+            return cmath.asinh(omega)
+        return math.asinh(omega)
+    if alpha == 6:
+        if isinstance(omega, complex):
+            return cmath.cosh(omega)
+        return math.cosh(omega)
+    if alpha == -6:
+        if isinstance(omega, complex):
+            return cmath.acosh(omega)
+        return math.acosh(omega)
+    if alpha == 7:
+        if isinstance(omega, complex):
+            return cmath.tanh(omega)
+        return math.tanh(omega)
+    if alpha == -7:
+        if isinstance(omega, complex):
+            return cmath.atanh(omega)
+        return math.atanh(omega)
+    if alpha == 8:
+        return (-1+omega**2)**0.5
+    if alpha == -8:
+        return -(-1+omega**2)**0.5
+    if alpha == 9:
+        return omega.real
+    if alpha == -9:
+        return omega
+    if alpha == 10:
+        return abs(omega)
+    if alpha == -10:
+        if isinstance(omega, complex):
+            return omega.conjugate()
+        return omega
+    if alpha == 11:
+        if isinstance(omega, complex):
+            return omega.imag
+        return 0.0
+    if alpha == -11:
+        return omega*complex(0, 1)
+    if alpha == 12:
+        if isinstance(omega, complex):
+            return cmath.phase(omega)
+        return 0.0
+    if alpha == -12:
+        a = omega*complex(0, 1)
+        return math.hypot(a.real, a.imag)
+
+    raise DomainError(f"DOMAIN ERROR: unknown magic number for ○: {alpha}")
 
 class Voc:
     """
@@ -619,34 +742,37 @@ class Voc:
     """
     funs: dict[str, Signature] = { 
         #--- Monadic-----------------------Dyadic----------------
-        '~': (bool_not,                    without),
-        '∨': (None,                        or_gcd),
-        '∧': (None,                        and_lcm),
-        '∊': (enlist,                      member),
-        '⍉': (lambda y: transpose([], y),  lambda x, y: transpose(x.to_list(), y)),
-        '⍴': (lambda y: rho(None, y),      rho),
-        '⍳': (index_gen,                   None),
-        '⍸': (where,                       None),
-        '≢': (tally,                       lambda x, y: arr.S(int(not arr.match(x, y)))),
-        '≡': (None,                        lambda x, y: arr.S(int(arr.match(x, y)))),
-        '⌈': (None,                        pervade(max)),
-        '⌊': (None,                        pervade(min)),
-        '+': (None,                        pervade(operator.add)),
-        '-': (mpervade(operator.neg),      pervade(operator.sub)),
-        '×': (mpervade(lambda y:y/abs(y)), pervade(operator.mul)),
-        '|': (mpervade(lambda y:abs(y)),   pervade(lambda x,y:y%x)),       # DYADIC NOTE ARG ORDER
-        '=': (None,                        pervade(lambda x,y:int(x==y))),
-        '>': (None,                        pervade(lambda x,y:int(x>y))),
-        '<': (None,                        pervade(lambda x,y:int(x<y))),
-        '≠': (None,                        pervade(lambda x,y:int(x!=y))),
-        '≥': (None,                        pervade(lambda x,y:int(x>=y))),
-        '≤': (None,                        pervade(lambda x,y:int(x<=y))),
+        '~': (bool_not,                     without),
+        '∨': (None,                         or_gcd),
+        '∧': (None,                         and_lcm),
+        '∊': (enlist,                       member),
+        '⍉': (lambda y: transpose([], y),   lambda x, y: transpose(x.to_list(), y)),
+        '⍴': (lambda y: rho(None, y),       rho),
+        '⍳': (index_gen,                    None),
+        '⍸': (where,                        None),
+        '≢': (tally,                        lambda x, y: arr.S(int(not arr.match(x, y)))),
+        '≡': (None,                         lambda x, y: arr.S(int(arr.match(x, y)))),
+        '⌈': (None,                         pervade(max)),
+        '⌊': (None,                         pervade(min)),
+        '!': (mpervade(math.factorial),     None),
+        '○': (mpervade(lambda o:o*math.pi), pervade(circle)),
+        '+': (None,                         pervade(operator.add)),
+        '-': (mpervade(operator.neg),       pervade(operator.sub)),
+        '×': (mpervade(lambda y:y/abs(y)),  pervade(operator.mul)),
+        '|': (mpervade(lambda y:abs(y)),    pervade(lambda x,y:y%x)),       # DYADIC NOTE ARG ORDER
+        '=': (None,                         pervade(lambda x,y:int(x==y))),
+        '>': (None,                         pervade(lambda x,y:int(x>y))),
+        '<': (None,                         pervade(lambda x,y:int(x<y))),
+        '≠': (None,                         pervade(lambda x,y:int(x!=y))),
+        '≥': (None,                         pervade(lambda x,y:int(x>=y))),
+        '≤': (None,                         pervade(lambda x,y:int(x<=y))),
     }
 
     ops: dict[str, Operator] = {
         #-------------Implem--------Derived-isa--Self-isa-----L-oper-isa---R-oper-isa
         '/': Operator(reduce,       Arity.MONAD, Arity.MONAD, Arity.DYAD,  None),
         '⌿': Operator(reduce_first, Arity.MONAD, Arity.MONAD, Arity.DYAD,  None),
+        '¨': Operator(each,         Arity.MONAD, Arity.MONAD, Arity.MONAD, None),
         '⍨': Operator(commute,      Arity.DYAD,  Arity.MONAD, Arity.DYAD,  None),
         '⍥': Operator(over,         Arity.DYAD,  Arity.DYAD,  Arity.DYAD,  Arity.MONAD)
     }
