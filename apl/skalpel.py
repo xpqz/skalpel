@@ -33,7 +33,7 @@ class TYPE(Enum):
     dfn=2
 
 class Value:
-    def __init__(self, payload: arr.Array|Callable|list[tuple], kind:TYPE) -> None:
+    def __init__(self, payload: arr.Array|str|list[tuple], kind:TYPE) -> None:
         self.payload = payload
         self.kind = kind
 
@@ -54,13 +54,19 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
         (instr, arg) = code[ip]
         ip += 1
         if instr == INSTR.psh:
-            stack.push([Value(arr.S(arg), TYPE.arr)])
+            if isinstance(arg, str):
+                stack.push([Value(arg, TYPE.fun)])
+            else:
+                stack.push([Value(arr.S(arg), TYPE.arr)])
+
         elif instr == INSTR.set:
             env[arg] = stack.pop()[0]
+
         elif instr == INSTR.get:
             if arg not in env:
                 raise ValueError(f'VALUE ERROR: Undefined name: "{arg}"')
             stack.push([env[arg]])
+
         elif instr == INSTR.dfn:
             if type(arg) == str: # by reference
                 if arg not in env:
@@ -71,44 +77,68 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             else: # direct definition
                 stack.push([Value(code[ip:ip+arg], TYPE.dfn)])
                 ip += arg
+
         elif instr == INSTR.dya:
-            if arg is None: # dfn
+            if arg is None: # In-line dfn
                 dfn = stack.pop()[0]
+                (alpha, omega) = stack.pop(2)
                 assert dfn is not None and dfn.kind == TYPE.dfn
-            (alpha, omega) = stack.pop(2)
-            assert alpha.kind == omega.kind == TYPE.arr
-            if arg is None: 
                 run(dfn.payload, {'⍺': alpha, '⍵': omega}, 0, stack) # type: ignore
-            elif type(arg) == str:
-                if Voc.has_builtin(arg):
-                    fn = Voc.get_fn(arg, Arity.DYAD)
-                    stack.push([Value(fn(alpha.payload, omega.payload), TYPE.arr)])
-                    continue
-                if arg not in env:
-                    raise ValueError(f"VALUE ERROR: Undefined name: {arg}")
+                continue
+ 
+            if Voc.has_builtin(arg): # Built-in function
+                fn = Voc.get_fn(arg, Arity.DYAD)
+                (alpha, omega) = stack.pop(2)
+                stack.push([Value(fn(alpha.payload, omega.payload), TYPE.arr)])
+                continue
+            
+            if arg in env: # Dfn-by-name
                 assert env[arg].kind == TYPE.dfn
-                run(env[arg].payload, {'⍺': alpha, '⍵': omega}, 0, stack) # type: ignore                    
+                (alpha, omega) = stack.pop(2)
+                run(env[arg].payload, {'⍺': alpha, '⍵': omega}, 0, stack) # type: ignore
+                continue
+            
+            if Voc.has_operator(arg): # Built-in operator
+                op = Voc.get_op(arg)
+                alfalfa = stack.pop()[0].payload
+                omomega = None
+                if op.arity == Arity.DYAD:
+                    omomega = stack.pop()[0].payload
+                (alpha, omega) = stack.pop(2)
+                fn = derive(op.f, alfalfa, omomega, Arity.DYAD)
+                stack.push([Value(fn(alpha.payload, omega.payload, env, stack), TYPE.arr)])
             else:
-                stack.push([Value(arg(alpha.payload, omega.payload, env, stack), TYPE.arr)])
+                raise ValueError(f'VALUE ERROR: unknown name {arg}')
+
         elif instr == INSTR.mon:
-            if arg is None: # dfn
+            if arg is None: # In-line dfn
                 dfn = stack.pop()[0]
                 assert dfn is not None and dfn.kind == TYPE.dfn
-            omega = stack.pop()[0]
-            assert omega.kind == TYPE.arr
-            if arg is None:
-                run(dfn.payload, {'⍵': omega}, 0, stack) # type: ignore
-            elif type(arg) == str:
-                if Voc.has_builtin(arg):
-                    fn = Voc.get_fn(arg, Arity.MONAD)
-                    stack.push([Value(fn(omega.payload), TYPE.arr)])
-                    continue
-                if arg not in env:
-                    raise ValueError(f"VALUE ERROR: Undefined name: {arg}")
+                run(dfn.payload, {'⍵': stack.pop()[0]}, 0, stack) # type: ignore
+                continue
+ 
+            if Voc.has_builtin(arg): # Built-in function
+                fn = Voc.get_fn(arg, Arity.MONAD)
+                stack.push([Value(fn(stack.pop()[0].payload), TYPE.arr)])
+                continue
+            
+            if arg in env: # Dfn-by-name
                 assert env[arg].kind == TYPE.dfn
-                run(env[arg].payload, {'⍵': omega}, 0, stack) # type: ignore    
+                run(env[arg].payload, {'⍵': omega}, 0, stack) # type: ignore
+                continue
+            
+            if Voc.has_operator(arg): # Built-in operator
+                op = Voc.get_op(arg)
+                alfalfa = stack.pop()[0].payload
+                omomega = None
+                if op.arity == Arity.DYAD:
+                    omomega = stack.pop()[0].payload
+                omega = stack.pop()[0]
+                fn = derive(op.f, alfalfa, omomega, Arity.MONAD)
+                stack.push([Value(fn(omega.payload, env, stack), TYPE.arr)])
             else:
-                stack.push([Value(arg(omega.payload, env, stack), TYPE.arr)])
+                raise ValueError(f'VALUE ERROR: unknown name {arg}')
+
         elif instr == INSTR.vec:
             stack.push([Value(arr.V([e.payload for e in stack.pop(arg)]), TYPE.arr)])
 
@@ -389,7 +419,7 @@ def each(left: str, right: Optional[str], alpha: Optional[arr.Array],  omega: ar
 
     return arr.A(omega.shape, [fn(arr.disclose(o)) for o in omega.data])
 
-def reduce(left: str, right: Optional[str], alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
+def reduce(left: str|list[tuple], right: Optional[Any], alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
     Outward-facing '/' (trailling axis reduce)
 
@@ -402,20 +432,24 @@ def reduce(left: str, right: Optional[str], alpha: Optional[arr.Array], omega: a
     if alpha is not None:
         raise NYIError("left argument for function derived by '/' is not implemented yet")
 
-    if Voc.has_builtin(left): # built-in, native left operand
-        return _reduce(operand=Voc.get_fn(left, Arity.DYAD), axis=omega.rank-1, omega=omega)
+    if type(left) == str:
+        if Voc.has_builtin(left): # built-in, native left operand
+            return _reduce(operand=Voc.get_fn(left, Arity.DYAD), axis=omega.rank-1, omega=omega)
     
-    # dfn operand
-    if left not in env:
-        raise ValueError(f"VALUE ERROR: Undefined name: {left}")
+        # dfn operand by name must be present in env
+        if left not in env:
+            raise ValueError(f"VALUE ERROR: Undefined name: {left}")
+        operand = env[left].payload
+    else:
+        operand = left
 
     def fn(a: arr.Array, o: arr.Array) -> arr.Array:
-        run(env[left].payload, env|{'⍺': Value(a, TYPE.arr), '⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
+        run(operand, env|{'⍺': Value(a, TYPE.arr), '⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
         return stack.pop()[0].payload
 
     return _reduce(operand=fn, axis=omega.rank-1, omega=omega)
 
-def reduce_first(left: str, right: Optional[str], alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
+def reduce_first(left: str|list[tuple], right: Optional[Any], alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
     Outward-facing '⌿' (leading axis reduce)
 
@@ -428,15 +462,19 @@ def reduce_first(left: str, right: Optional[str], alpha: Optional[arr.Array], om
     if alpha is not None:
         raise NYIError("left argument for function derived by '/' is not implemented yet")
 
-    if Voc.has_builtin(left): # built-in, native left operand
-        return _reduce(operand=Voc.get_fn(left, Arity.DYAD), axis=0, omega=omega)
+    if type(left) == str:
+        if Voc.has_builtin(left): # built-in, native left operand
+            return _reduce(operand=Voc.get_fn(left, Arity.DYAD), axis=0, omega=omega)
     
-    # dfn operand
-    if left not in env:
-        raise ValueError(f"VALUE ERROR: Undefined name: {left}")
+        # dfn operand by name must be present in env
+        if left not in env:
+            raise ValueError(f"VALUE ERROR: Undefined name: {left}")
+        operand = env[left].payload
+    else:
+        operand = left
 
     def fn(a: arr.Array, o: arr.Array) -> arr.Array:
-        run(env[left].payload, env|{'⍺': Value(a, TYPE.arr), '⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
+        run(operand, env|{'⍺': Value(a, TYPE.arr), '⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
         return stack.pop()[0].payload
 
     return _reduce(operand=fn, axis=0, omega=omega)
@@ -782,6 +820,10 @@ class Voc:
         return f in cls.funs
 
     @classmethod
+    def has_operator(cls, f: str) -> bool:
+        return f in cls.ops
+
+    @classmethod
     def get_fn(cls, f: Callable|str, arity: Arity) -> Callable:
         """
         Lookup a function from the global symbol table
@@ -823,7 +865,7 @@ def derive(operator: Callable, left: str, right: Optional[str], arity: Arity) ->
 if __name__ == "__main__":
     # To run the doctests (verbosely), do 
     #
-    # python voc.py -v
+    # python skalpel.py -v
     #
     # See: https://docs.python.org/3/library/doctest.html
     import doctest

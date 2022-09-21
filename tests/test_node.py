@@ -18,7 +18,7 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.mon,
+            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.mon,
         ]
         
     def test_mop_deriving_dyad(self):
@@ -28,7 +28,8 @@ class TestNode:
         code = ast.emit()
         assert code[0][0] == INSTR.psh
         assert code[1][0] == INSTR.psh
-        assert code[2][0] == INSTR.dya
+        assert code[2][0] == INSTR.psh
+        assert code[3][0] == INSTR.dya
 
     def test_gets(self):
         src = "var←99"
@@ -46,7 +47,7 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            INSTR.psh, INSTR.mon, INSTR.set, INSTR.get, INSTR.mon, INSTR.set,
+            INSTR.psh, INSTR.mon, INSTR.set, INSTR.get, INSTR.psh, INSTR.mon, INSTR.set,
         ]
 
     def test_sys(self):
@@ -64,7 +65,7 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.dya,  
+            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.psh, INSTR.dya,  
         ]
 
     def test_dfn_call(self):
@@ -76,6 +77,17 @@ class TestNode:
         assert instr == [
             INSTR.psh, INSTR.psh, INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.dya
         ]
+
+    def test_dfn_operand_inline(self):
+        src = '{⍺+⍵}/1 2 3 4'
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        instr = [line[0] for line in code]
+        assert instr == [
+            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.mon
+        ]
+    
 
     def test_gets_dfn(self):
         src = 'A←{⍺+⍵}'
@@ -122,7 +134,7 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.mon
+            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.mon
         ]    
 
     def test_dfn_ref_operand2(self):    
@@ -132,6 +144,6 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.psh, INSTR.mon, INSTR.mon
+            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.psh, INSTR.mon, INSTR.psh, INSTR.mon
         ]   
     

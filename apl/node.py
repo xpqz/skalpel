@@ -56,37 +56,27 @@ class Node:
                     sc.emit()
             Node.code[state] = (INSTR.dfn, len(Node.code)-state-1)
 
-    def monadic_function(self) -> Callable|str:
+    def monadic_function(self) -> Optional[str]:
         assert self.kind in CALLABLE
 
         if self.kind in {NodeType.FUN, NodeType.FREF}:
             return self._mttok()
 
-        # if self.kind == NodeType.FUN:
-        #     return Voc.get_fn(self._mttok(), Arity.MONAD)
-
-        # if self.kind == NodeType.FREF:
-        #     return self._mttok()
-
         if self.kind == NodeType.DFN:
-            raise NYIError
+            self.emit_dfn()
+            return None
 
         return self.derived_monad()
 
-    def dyadic_function(self) -> Callable|str:
+    def dyadic_function(self) -> Optional[str]:
         assert self.kind in CALLABLE
 
         if self.kind in {NodeType.FUN, NodeType.FREF}:
             return self._mttok()
 
-        # if self.kind == NodeType.FUN:
-        #     return Voc.get_fn(self._mttok(), Arity.DYAD)
-
-        # if self.kind == NodeType.FREF:
-        #     return self._mttok()
-
-        if self.kind == NodeType.DFN:
-            raise NYIError
+        if self.kind == NodeType.DFN: # Inline dfn
+            self.emit_dfn()
+            return None
 
         return self.derived_dyad()
 
@@ -100,7 +90,7 @@ class Node:
             raise EmitError('EMIT ERROR: main_token is undefined')
         Node.code.append((INSTR.get, self.main_token.tok))
 
-    def derived_monad(self) -> Callable:
+    def derived_monad(self) -> str: # op deriving monad
         op_name = self._mttok()
         op = Voc.get_op(op_name)
 
@@ -120,12 +110,15 @@ class Node:
                 right = self.children[1].monadic_function()
             else:
                 right = self.children[1].dyadic_function()
-        else:
-            right = None
+            if right:
+                Node.code.append((INSTR.psh, right))
 
-        return derive(op.f, left, right, Arity.MONAD)  # type: ignore
+        if left:
+            Node.code.append((INSTR.psh, left))
 
-    def derived_dyad(self) -> Callable:
+        return op_name
+
+    def derived_dyad(self) -> str: # op deriving dyad
         op_name = self._mttok()
         if self.children is None:
             raise EmitError('EMIT ERROR: node has no children')
@@ -145,10 +138,13 @@ class Node:
                 right = self.children[1].monadic_function()
             else:
                 right = self.children[1].dyadic_function()
-        else:
-            right = None
+            if right:
+                Node.code.append((INSTR.psh, right))
 
-        return derive(op.f, left, right, Arity.DYAD) # type: ignore
+        if left:
+            Node.code.append((INSTR.psh, left))
+
+        return op_name
 
     def emit_monadic_call(self) -> None:
         if self.children is None:

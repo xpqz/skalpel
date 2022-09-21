@@ -1,5 +1,7 @@
 # type: ignore
 
+import re
+
 from pygments.lexers.apl import APLLexer
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit import PromptSession
@@ -18,6 +20,7 @@ def main():
 
     print(f'Welcome to skalpel "APL". (c) 2022 xpqz, MIT LICENSE. C-d to quit')
     while True:
+        compile_only = False
         try:
             src = session.prompt('skalpel> ', lexer=PygmentsLexer(APLLexer))
         except KeyboardInterrupt:
@@ -41,6 +44,10 @@ def main():
         if src == ')apl':
             style = 'apl'
             continue
+
+        if m := re.match(r'^\s*\]compile\s+(.*)$', src):
+            compile_only = True
+            src = m.group(1)
         
         try:
             ast = parser.parse(src)
@@ -49,6 +56,12 @@ def main():
             code = ast.emit()
         except Exception as inst:
             print(inst) # Syntactic errors
+            continue
+
+        if compile_only:
+            for i in code:
+                instr = str(i[0])[6:].upper()
+                print(f'{instr}  {i[1]}')
             continue
 
         stack = Stack()
