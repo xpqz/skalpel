@@ -72,7 +72,7 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
                 if arg not in env:
                     raise ValueError(f'VALUE ERROR: Undefined name: "{arg}"')
                 f = env[arg]
-                assert f.kind == TYPE.dfn # TODO: also TYPE.fun
+                assert f.kind == TYPE.dfn
                 stack.push([f])
             else: # direct definition
                 stack.push([Value(code[ip:ip+arg], TYPE.dfn)])
@@ -100,10 +100,11 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             
             if Voc.has_operator(arg): # Built-in operator
                 op = Voc.get_op(arg)
-                alfalfa = stack.pop()[0].payload
                 omomega = None
                 if op.arity == Arity.DYAD:
-                    omomega = stack.pop()[0].payload
+                    (alfalfa, omomega) = (stack.pop()[0].payload, stack.pop()[0].payload)
+                else:
+                    alfalfa = stack.pop()[0].payload
                 (alpha, omega) = stack.pop(2)
                 fn = derive(op.f, alfalfa, omomega, Arity.DYAD)
                 stack.push([Value(fn(alpha.payload, omega.payload, env, stack), TYPE.arr)])
@@ -129,10 +130,12 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             
             if Voc.has_operator(arg): # Built-in operator
                 op = Voc.get_op(arg)
-                alfalfa = stack.pop()[0].payload
                 omomega = None
                 if op.arity == Arity.DYAD:
-                    omomega = stack.pop()[0].payload
+                    # same as (omomega, alfalfa) = stack.pop(2) but with the payloads
+                    (alfalfa, omomega) = (stack.pop()[0].payload, stack.pop()[0].payload) # Note: order
+                else:
+                    alfalfa = stack.pop()[0].payload
                 omega = stack.pop()[0]
                 fn = derive(op.f, alfalfa, omomega, Arity.MONAD)
                 stack.push([Value(fn(omega.payload, env, stack), TYPE.arr)])
@@ -230,48 +233,47 @@ def pervade(f: Callable, direct: bool=False) -> Callable:
 
     return pervaded
 
-def commute(left: str, right: Optional[str], alpha: arr.Array, omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
+def _make_operand(oper: str|list[tuple], arity: Arity, env:dict[str, Value], stack: Stack) -> Callable:
+    if type(oper) == str:
+        if Voc.has_builtin(oper): # built-in primitive, e.g ⌊
+            return Voc.get_fn(oper, arity)
+        if oper not in env or env[oper].kind != TYPE.dfn:
+            raise ValueError(f"VALUE ERROR: Undefined name: {oper}")
+        bytecode = env[oper].payload # reference to dfn
+    else:
+        bytecode = oper # in-line dfn reference
+
+    if arity == Arity.DYAD:
+        def dyad(a: arr.Array, o: arr.Array) -> arr.Array:
+            run(bytecode, env|{'⍺': Value(a, TYPE.arr), '⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
+            return stack.pop()[0].payload
+        return dyad
+
+    def monad(o: arr.Array) -> arr.Array:
+        run(bytecode, env|{'⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
+        return stack.pop()[0].payload
+    return monad
+        
+def commute(left: str, right: Optional[Any], alpha: arr.Array, omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
     Outward-facing 'A f⍨ B' (commute) -- swap argument order
     """
     if right is not None:
         raise ArityError("ARITY ERROR: '⍨' takes no right operand")
+    fun = _make_operand(left, Arity.DYAD, env, stack)
     
-    if Voc.has_builtin(left):
-        return Voc.get_fn(left, Arity.DYAD)(omega, alpha)
+    return fun(omega, alpha)
 
-    if left not in env:
-        raise ValueError(f"VALUE ERROR: Undefined name: {left}")   
-
-    run(env[left], env|{'⍺': Value(omega, TYPE.arr), '⍵': Value(alpha, TYPE.arr)}, 0, stack) # type: ignore
-
-    return stack.pop()[0].payload
-
-def over(left: str, right: Optional[str], alpha: arr.Array, omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
+def over(left: str|list[tuple], right: Optional[str|list[tuple]], alpha: arr.Array, omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
     Outward-facing '⍥'
     """
     if right is None:
         raise ArityError("'⍥' takes a right operand")
 
-    if Voc.has_builtin(left):
-        fn = Voc.get_fn(left, Arity.DYAD)
-    else:
-        if left not in env:
-            raise ValueError(f"VALUE ERROR: Undefined name: {left}")       
-        def fn(a: arr.Array, o: arr.Array) -> arr.Array:
-            run(env[left].payload, env|{'⍺': Value(a, TYPE.arr), '⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
-            return stack.pop()[0].payload
-
-    if Voc.has_builtin(right):
-        pp = Voc.get_fn(right, Arity.MONAD)
-    else:
-        if right not in env:
-            raise ValueError(f"VALUE ERROR: Undefined name: {right}")
-        def pp(o: arr.Array) -> arr.Array:
-            run(env[right].payload, env|{'⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
-            return stack.pop()[0].payload
-
+    fn = _make_operand(left, Arity.DYAD, env, stack)
+    pp = _make_operand(right, Arity.MONAD, env, stack)
+    
     return fn(pp(alpha), pp(omega))
 
 def _reorder_axes(spec:Sequence[int], coords:Sequence[int]) -> list[int]:
@@ -397,9 +399,11 @@ def transpose(alpha: Sequence[int], omega: arr.Array) -> arr.Array:
     
     return arr.Aflat(new_shape, deepcopy(newdata)) # Possibly won't need deepcopy() here.
 
-def each(left: str, right: Optional[str], alpha: Optional[arr.Array],  omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
+def each(left: str|list[tuple], right: Optional[str], alpha: Optional[Any],  omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
     Each ¨ - monadic operator deriving monad
+
+    TODO: squeeze the result array
     """
     if right is not None:
         raise ArityError("'¨' takes no right operand")
@@ -407,17 +411,9 @@ def each(left: str, right: Optional[str], alpha: Optional[arr.Array],  omega: ar
     if alpha is not None:
         raise ArityError("function derived by '¨' takes no left argument")
 
-    if Voc.has_builtin(left):
-        fn = Voc.get_fn(left, Arity.MONAD)
-    else:
-        if left not in env:
-            raise ValueError(f"VALUE ERROR: Undefined name: {left}")
+    fun = _make_operand(left, Arity.MONAD, env, stack)
 
-        def fn(o: arr.Array) -> arr.Array:
-            run(env[left].payload, env|{'⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
-            return stack.pop()[0].payload
-
-    return arr.A(omega.shape, [fn(arr.disclose(o)) for o in omega.data])
+    return arr.A(omega.shape, [fun(arr.disclose(o)) for o in omega.data])
 
 def reduce(left: str|list[tuple], right: Optional[Any], alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
@@ -432,22 +428,9 @@ def reduce(left: str|list[tuple], right: Optional[Any], alpha: Optional[arr.Arra
     if alpha is not None:
         raise NYIError("left argument for function derived by '/' is not implemented yet")
 
-    if type(left) == str:
-        if Voc.has_builtin(left): # built-in, native left operand
-            return _reduce(operand=Voc.get_fn(left, Arity.DYAD), axis=omega.rank-1, omega=omega)
-    
-        # dfn operand by name must be present in env
-        if left not in env:
-            raise ValueError(f"VALUE ERROR: Undefined name: {left}")
-        operand = env[left].payload
-    else:
-        operand = left
+    fun = _make_operand(left, Arity.DYAD, env, stack)
 
-    def fn(a: arr.Array, o: arr.Array) -> arr.Array:
-        run(operand, env|{'⍺': Value(a, TYPE.arr), '⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
-        return stack.pop()[0].payload
-
-    return _reduce(operand=fn, axis=omega.rank-1, omega=omega)
+    return _reduce(operand=fun, axis=omega.rank-1, omega=omega)
 
 def reduce_first(left: str|list[tuple], right: Optional[Any], alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
@@ -462,22 +445,9 @@ def reduce_first(left: str|list[tuple], right: Optional[Any], alpha: Optional[ar
     if alpha is not None:
         raise NYIError("left argument for function derived by '/' is not implemented yet")
 
-    if type(left) == str:
-        if Voc.has_builtin(left): # built-in, native left operand
-            return _reduce(operand=Voc.get_fn(left, Arity.DYAD), axis=0, omega=omega)
-    
-        # dfn operand by name must be present in env
-        if left not in env:
-            raise ValueError(f"VALUE ERROR: Undefined name: {left}")
-        operand = env[left].payload
-    else:
-        operand = left
+    fun = _make_operand(left, Arity.DYAD, env, stack)
 
-    def fn(a: arr.Array, o: arr.Array) -> arr.Array:
-        run(operand, env|{'⍺': Value(a, TYPE.arr), '⍵': Value(o, TYPE.arr)}, 0, stack) # type: ignore
-        return stack.pop()[0].payload
-
-    return _reduce(operand=fn, axis=0, omega=omega)
+    return _reduce(operand=fun, axis=0, omega=omega)
 
 def _reduce(*, operand: Callable, axis: int, omega: arr.Array) -> arr.Array:
     """
@@ -716,9 +686,9 @@ def circle(alpha: int, omega: int|float|complex) -> float|complex:
             return cmath.atan(omega)
         return math.atan(omega)
     if alpha == 4:
-        return math.sqrt(1+omega**2)
+        return (1+omega**2)**0.5
     if alpha == -4:
-        return math.sqrt(-1+omega**2)
+        return (-1+omega**2)**0.5
     if alpha == 5:
         if isinstance(omega, complex):
             return cmath.sinh(omega)

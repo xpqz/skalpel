@@ -100,20 +100,19 @@ class Node:
         if op.derives != Arity.MONAD:
             raise ArityError(f"ARITY ERROR: operator '{op_name}' does not derive a monadic function")
 
+        if self.kind == NodeType.DOP:
+            if op.right == Arity.MONAD:
+                right = self.children[1].monadic_function()
+            else:
+                right = self.children[1].dyadic_function()        
+            Node.code.append((INSTR.psh, right))
+
         if op.left == Arity.MONAD:
             left = self.children[0].monadic_function()
         else:
             left = self.children[0].dyadic_function()
 
-        if self.kind == NodeType.DOP:
-            if op.right == Arity.MONAD:
-                right = self.children[1].monadic_function()
-            else:
-                right = self.children[1].dyadic_function()
-            if right:
-                Node.code.append((INSTR.psh, right))
-
-        if left:
+        if left: # Note: for in-line dfns we already have the dfn on the stack
             Node.code.append((INSTR.psh, left))
 
         return op_name
@@ -128,20 +127,21 @@ class Node:
         if op.derives != Arity.DYAD:
             raise ArityError(f"ARITY ERROR: operator '{op_name}' does not derive a dyadic function")
 
-        if op.left == Arity.MONAD:
-            left = self.children[0].monadic_function()
-        else:
-            left = self.children[0].dyadic_function()
-
         if self.kind == NodeType.DOP:
             if op.right == Arity.MONAD:
                 right = self.children[1].monadic_function()
             else:
                 right = self.children[1].dyadic_function()
+    
             if right:
                 Node.code.append((INSTR.psh, right))
 
-        if left:
+        if op.left == Arity.MONAD:
+            left = self.children[0].monadic_function()
+        else:
+            left = self.children[0].dyadic_function()
+    
+        if left: # Note: for in-line dfns we already have the dfn on the stack
             Node.code.append((INSTR.psh, left))
 
         return op_name

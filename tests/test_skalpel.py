@@ -1,4 +1,4 @@
-from apl.arr import Array, S, match
+from apl.arr import Array, Aflat, S, V, match
 from apl.parser import Parser
 from apl.skalpel import run, TYPE
 from apl.stack import Stack
@@ -121,7 +121,6 @@ class TestDfn:
         
     def test_dfn_ref_operand(self):
         src = "Add←{⍺+⍵}⋄Add/1 2 3 4"
-        # src = "+/1 2 3 4"
         parser = Parser()
         ast = parser.parse(src)
         code = ast.emit()
@@ -130,3 +129,81 @@ class TestDfn:
         run(code, env, 0, stack)
         result = stack.stack[0]
         assert match(result.payload, S(10))
+
+class TestOperator:
+    def test_each_primitive(self):
+        src = '≢¨(1 2 3)(1 2)(1 2 3 4)'
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, V([3, 2, 4]))
+
+    def test_each_dfn_inline(self):
+        src = '{≢⍵}¨(1 2 3)(1 2)(1 2 3 4)'
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, V([3, 2, 4]))
+
+    def test_each_dfn_ref(self):
+        src = 'A←{≢⍵}⋄A¨(1 2 3)(1 2)(1 2 3 4)'
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, V([3, 2, 4]))
+
+    def test_each_matrix(self):
+        src = '{≢⍵}¨2 2⍴(1 2 3)(1 2)(1 2 3 4)(1 2 3)'
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, Aflat([2, 2], [3, 2, 4, 3]))
+
+    def test_over_primitives(self):
+        src = "1 2 3 ⌊⍥≢ 1 2 3 4"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, S(3))
+
+    def test_over_dfn_left(self):
+        src = "1 2 3 {⍺⌊⍵}⍥≢ 1 2 3 4"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, S(3))
+
+    def test_over_dfn_left_right(self):
+        src = "1 2 3 {⍺⌊⍵}⍥{≢⍵} 1 2 3 4"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, S(3))
