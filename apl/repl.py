@@ -16,11 +16,11 @@ def main():
     session = PromptSession()
     parser = Parser()
     env = {}
-    style = 'apl'
-
+    
     print(f'Welcome to skalpel "APL". (c) 2022 xpqz, MIT LICENSE. C-d to quit')
     while True:
         compile_only = False
+        style = 'apl'
         try:
             src = session.prompt('skalpel> ', lexer=PygmentsLexer(APLLexer))
         except KeyboardInterrupt:
@@ -37,16 +37,12 @@ def main():
             print('Environment reset')
             continue
 
-        if src == ')py':
-            style = 'python'
-            continue
-
-        if src == ')apl':
-            style = 'apl'
-            continue
-
         if m := re.match(r'^\s*\]compile\s+(.*)$', src):
             compile_only = True
+            src = m.group(1)
+
+        if m := re.match(r'^\s*\]py\s+(.*)$', src):
+            style = 'python'
             src = m.group(1)
         
         try:
