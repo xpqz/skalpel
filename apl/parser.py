@@ -88,7 +88,7 @@ class Parser:
                     raise SyntaxError
                 name = self.parse_identifier()
                 if node.kind in {NodeType.DFN, NodeType.FUN} and name.kind != NodeType.FREF:
-                    raise SyntaxError(f"SYNTAX ERROR: named functions must start with a capital letter: '{name.main_token.tok}'")
+                    raise SyntaxError(f"SYNTAX ERROR: named functions must start with a capital letter: '{name.main_token.tok}'") # type: ignore
                 node = Node(NodeType.GETS, gets, [name, node])
             else:
                 fun = self.parse_function()
