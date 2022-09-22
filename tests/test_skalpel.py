@@ -130,6 +130,17 @@ class TestDfn:
         result = stack.stack[0]
         assert match(result.payload, S(10))
 
+    def test_early_return(self):
+        src = "3 {a←⍺ ⋄ b←⍵>a ⋄ a+b ⋄ a-b ⋄ a×b ⋄ 2 2⍴a a a a} 7"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, S(4))
+
 class TestOperator:
     def test_each_primitive(self):
         src = '≢¨(1 2 3)(1 2)(1 2 3 4)'

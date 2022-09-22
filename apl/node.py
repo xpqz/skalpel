@@ -54,6 +54,8 @@ class Node:
             if self.children is not None:
                 for sc in self.children:
                     sc.emit()
+                    if sc.kind != NodeType.GETS: # First non-assignment is returned. TODO: guards
+                        break
             Node.code[state] = (INSTR.dfn, len(Node.code)-state-1)
 
     def monadic_function(self) -> Optional[str]:

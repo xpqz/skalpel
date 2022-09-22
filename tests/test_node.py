@@ -147,3 +147,12 @@ class TestNode:
             INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.psh, INSTR.mon, INSTR.psh, INSTR.mon
         ]   
     
+    def test_early_return(self):
+        src = "{a←⍺ ⋄ b←⍵>a ⋄ a+b ⋄ a-b ⋄ a×b ⋄ 2 2⍴a a a a}"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        instr = [line[0] for line in code]
+        assert instr == [
+            INSTR.dfn, INSTR.get, INSTR.set, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.get, INSTR.get, INSTR.dya
+        ] 
