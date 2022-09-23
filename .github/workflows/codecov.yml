@@ -12,9 +12,8 @@ jobs:
       run: |
         pip install pytest-cov 
         pip install -r requirements.txt
-        pip install -e .
     - name: Run tests and collect coverage
-      run: pytest --cov 
+      run: poetry run pytest --cov 
     - name: Upload coverage reports to Codecov
       run: |
         # Replace `linux` below with the appropriate OS
