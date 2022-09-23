@@ -67,7 +67,7 @@ jobs:
 
       # And finally run tests. I'm using pytest and all my pytest config is in my `pyproject.toml`
       # so this line is super-simple. But it could be as complex as you need.
-      - run: poetry run pytest --cov=<project-dir> --cov-report=xml
+      - run: poetry run pytest --cov --cov-report=xml
 
       - name: Upload coverage
         uses: codecov/codecov-action@v1
