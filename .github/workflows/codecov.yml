@@ -10,8 +10,8 @@ jobs:
     - uses: actions/checkout@v1
     - name: Install requirements
       run: |
-        pip install pytest-cov 
-        pip install -r requirements.txt
+        pip install pytest-cov poetry
+        poetry install .
     - name: Run tests and collect coverage
       run: poetry run pytest --cov 
     - name: Upload coverage reports to Codecov
