@@ -9,6 +9,7 @@ from prompt_toolkit.shortcuts import clear
 
 from apl.box import disp
 from apl.parser import Parser
+from apl.runtime import cmpx
 from apl.skalpel import run
 from apl.stack import Stack
 
@@ -44,6 +45,11 @@ def main():
         if m := re.match(r'^\s*\]py\s+(.*)$', src):
             style = 'python'
             src = m.group(1)
+
+        if re.match(r'^\s*\]cmpx', src):
+            candidates = [e for (i, e) in enumerate(src.split('"')) if i%2]
+            print(cmpx(candidates))
+            continue
         
         try:
             ast = parser.parse(src)
