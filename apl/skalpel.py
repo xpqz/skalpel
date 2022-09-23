@@ -428,6 +428,26 @@ def reduce(left: str|list[tuple], right: Optional[Any], alpha: Optional[arr.Arra
     if alpha is not None:
         raise NYIError("left argument for function derived by '/' is not implemented yet")
 
+    # Local optimisations go here.
+    if omega.array_type == arr.ArrayType.FLAT:
+        # Dirty hacks for flat vectors
+        if omega.rank == 1:
+            if left == '+':
+                if omega.type == arr.DataType.UINT1:
+                    return arr.S(omega.data.count()) # type: ignore
+                return arr.S(sum(omega.data))
+            if left == '×':
+                return arr.S(math.prod(omega.data))
+
+        # Dirty hacks for flat matrices
+        if omega.rank == 2:
+            if left == '+':
+                if omega.type == arr.DataType.UINT1:
+                    return arr.V([row.count() for row in arr.rows_flat_matrix(omega)])
+                return arr.V([sum(row) for row in arr.rows_flat_matrix(omega)])
+            if left == '×':
+                return arr.V([math.prod(row) for row in arr.rows_flat_matrix(omega)])
+
     fun = _make_operand(left, Arity.DYAD, env, stack)
 
     return _reduce(operand=fun, axis=omega.rank-1, omega=omega)
@@ -444,6 +464,16 @@ def reduce_first(left: str|list[tuple], right: Optional[Any], alpha: Optional[ar
 
     if alpha is not None:
         raise NYIError("left argument for function derived by '/' is not implemented yet")
+
+    # Local optimisations go here.
+    if omega.array_type == arr.ArrayType.FLAT:
+        if omega.rank == 1:
+            if left == '+':
+                if omega.type == arr.DataType.UINT1:
+                    return arr.S(omega.data.count()) # type: ignore
+                return arr.S(sum(omega.data))
+            if left == '×':
+                return arr.S(math.prod(omega.data))
 
     fun = _make_operand(left, Arity.DYAD, env, stack)
 

@@ -248,6 +248,18 @@ def kcells(arr: Array, k: int) -> Iterator[Array]:
         data = arr.data[cell*cbnd:(cell+1)*cbnd]
         yield Array.from_sequence(csh, arr.type, arr.array_type, data) # type: ignore
 
+def rows_flat_matrix(arr: Array) -> Iterator:
+    """
+    Iterate over the rows in a flat array of rank 2
+    """
+    if arr.rank != 2:
+        raise RankError("RANK ERROR")
+    if arr.array_type != ArrayType.FLAT:
+        raise DomainError("DOMAIN ERROR")
+
+    for row in range(arr.shape[0]):
+        yield arr.data[row*arr.shape[1]:(row+1)*arr.shape[1]]
+
 def encode(shape: Sequence[int], idx: int) -> Sequence[int]:
     """
     encode returns the coordinate vector into shape corresponding
