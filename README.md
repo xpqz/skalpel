@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/github/xpqz/skalpel/branch/main/graph/badge.svg?token=48SO6F9B00)](https://codecov.io/github/xpqz/skalpel)
+
 # Skalpel APL-alike
 
 I wanted to implement an APL interpreter as the next phase of my [APL journey](https://xpqz.github.io/learnapl). I'm not arrogant enough to think that I somehow can do "better" than the incumbents; instead tackling this solely for my own amusement and as a means to gain insight into how things actually hang together 'under the hood'.
