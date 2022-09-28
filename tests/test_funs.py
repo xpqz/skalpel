@@ -120,7 +120,7 @@ class TestWhere:
     def test_where_arr(self):
         a = arr.Aflat([2, 2], [1, 1, 1, 0])
         b = f.where(a)
-        assert 'V(MIXED, NESTED, [<V(NUM, FLAT, [0, 0])>, <V(NUM, FLAT, [0, 1])>, <V(NUM, FLAT, [1, 0])>])' == str(b)
+        assert 'V(MIXED, NESTED, [<V(INT, FLAT, [0, 0])>, <V(INT, FLAT, [0, 1])>, <V(INT, FLAT, [1, 0])>])' == str(b)
 
 class TestEach:
     def test_each(self):

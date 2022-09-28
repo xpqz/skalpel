@@ -53,9 +53,35 @@ class TestIsNested:
     ])
     def test_is_nested(self, test_input, expected):
         assert expected == arr.isnested(test_input)
-        
 
+class TestMutate:
+    def test_mutate1(self): # no widening
+        a = arr.V([1, 0, 0, 1, 0, 1])
+        idx = arr.V([1, 2])
+        vals = arr.V([1, 1])
+        a.mutate(idx, vals)
+        assert str(a) == 'V(UINT1, FLAT, [1, 1, 1, 1, 0, 1])'
 
-    
+    def test_mutate2(self): # widen UNIT1 to UNIT8
+        a = arr.V([1, 0, 0, 1, 0, 1])
+        idx = arr.V([1, 2])
+        vals = arr.V([9, 9])
+        a.mutate(idx, vals)
+        assert str(a) == 'V(UINT8, FLAT, [1, 9, 9, 1, 0, 1])'
 
+    def test_mutate3(self): # widen UNIT8 to INT
+        a = arr.V([9, 0, 0, 8, 0, 1])
+        idx = arr.V([1, 2])
+        vals = arr.V([300, -40])
+        a.mutate(idx, vals)
+        assert str(a) == 'V(INT, FLAT, [9, 300, -40, 8, 0, 1])'
 
+    def test_mutate4(self): # widen INT to FLOAT
+        a = arr.V([900, 0, 0, 8, 0, 1])
+        idx = arr.V([1, 2])
+        vals = arr.V([3.14159265, -2.71828])
+        a.mutate(idx, vals)
+        assert str(a) == 'V(FLOAT, FLAT, [900, 3.14159265, -2.71828, 8, 0, 1])'
+
+    def test_mutate5(self):
+        pass

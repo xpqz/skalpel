@@ -4,7 +4,7 @@ from string import ascii_letters
 from apl.errors import UnexpectedToken
 
 alpha = '_abcdefghijklmnopqrstuvwxyz∆ABCDEFGHIJKLMNOPQRSTUVWXYZ⍙ÁÂÃÇÈÊËÌÍÎÏÐÒÓÔÕÙÚÛÝþãìðòõÀÄÅÆÉÑÖØÜßàáâäåæçèéêëíîïñóôöøùúûü'
-funs = '⎕[]!&*+,-./<=>?\\^|~×÷↑→↓∊∣∧∨∩∪≠≡≢≤≥⊂⊃⊆⊖⊢⊣⊤⊥⌈⌊⌶⌷⌽⍉⍋⍎⍒⍕⍟⍪⍬⍱⍲⍳⍴⍷⍸○'
+funs = '⎕!&*+,-./<=>?\\^|~×÷↑→↓∊∣∧∨∩∪≠≡≢≤≥⊂⊃⊆⊖⊢⊣⊤⊥⌈⌊⌶⌷⌽⍉⍋⍎⍒⍕⍟⍪⍬⍱⍲⍳⍴⍷⍸○'
 
 operators = '@⌸⌹⌺⍠⌿⍀∘⍠⍣⍤⍥⍨¨/\\'
 
@@ -19,6 +19,8 @@ class TokenType(Enum):
     RPAREN = auto()
     LBRACE = auto()
     RBRACE = auto()
+    LBRACKET = auto()
+    RBRACKET = auto()
     DIAMOND = auto()
     GETS = auto()
     ALPHA = auto()
@@ -34,6 +36,8 @@ TOK: dict[str, TokenType] = {
     ")":  TokenType.RPAREN,
     "{":  TokenType.LBRACE,
     "}":  TokenType.RBRACE,
+    "[":  TokenType.LBRACKET,
+    "]":  TokenType.RBRACKET,
     ":":  TokenType.COLON,
     "⍺":  TokenType.ALPHA,
     "⍵":  TokenType.OMEGA,

@@ -1,9 +1,9 @@
 from enum import Enum, auto
-from typing import Callable, Optional, TypeAlias
+from typing import Optional, TypeAlias
 
-from apl.errors import ArityError, EmitError, NYIError
+from apl.errors import ArityError, EmitError
 from apl.tokeniser import Token
-from apl.skalpel import Arity, derive, INSTR, Voc
+from apl.skalpel import Arity, INSTR, Voc
 
 class NodeType(Enum):
     GETS = auto()
@@ -14,6 +14,7 @@ class NodeType(Enum):
     FUN = auto()
     DFN = auto()
     ARG = auto()
+    IDX = auto()
     DYADIC = auto()
     MONADIC = auto()
     VECTOR = auto()
@@ -33,13 +34,13 @@ class Node:
         self.children = children
 
     def _mttok(self) -> str:
-        if self.main_token is None or not isinstance(self.main_token.tok, str):
+        if not self.main_token or not isinstance(self.main_token.tok, str):
             raise EmitError('EMIT ERROR: expected a main_token of type str')
         else:
             return self.main_token.tok
 
     def add(self, node: 'Node') -> None:
-        if self.children is None:
+        if not self.children:
             self.children = [node]
         else:
             self.children.append(node)
@@ -83,12 +84,24 @@ class Node:
         return self.derived_dyad()
 
     def emit_scalar(self) -> None:
-        if self.main_token is None:
+        if not self.main_token:
             raise EmitError('EMIT ERROR: main_token is undefined')
         Node.code.append((INSTR.psh, self.main_token.tok))
 
+    def emit_idx(self) -> None:
+        if not self.children:
+            raise EmitError('EMIT ERROR: node has no children')
+        (receiver, idx) = self.children
+        idx.emit()
+        if receiver.kind in {NodeType.ARG, NodeType.ID}:
+            Node.code.append((INSTR.geti, receiver.main_token.tok)) # type: ignore
+        elif receiver.kind == NodeType.VECTOR:
+            Node.code.append((INSTR.geti, None))
+        else:
+            raise EmitError(f"EMIT ERROR: unexpected node {receiver.kind}")
+
     def emit_id(self) -> None:
-        if self.main_token is None:
+        if not self.main_token:
             raise EmitError('EMIT ERROR: main_token is undefined')
         Node.code.append((INSTR.get, self.main_token.tok))
 
@@ -96,7 +109,7 @@ class Node:
         op_name = self._mttok()
         op = Voc.get_op(op_name)
 
-        if self.children is None:
+        if not self.children:
             raise EmitError('EMIT ERROR: node has no children')
     
         if op.derives != Arity.MONAD:
@@ -121,7 +134,7 @@ class Node:
 
     def derived_dyad(self) -> str: # op deriving dyad
         op_name = self._mttok()
-        if self.children is None:
+        if not self.children:
             raise EmitError('EMIT ERROR: node has no children')
 
         op = Voc.get_op(op_name)
@@ -149,7 +162,7 @@ class Node:
         return op_name
 
     def emit_monadic_call(self) -> None:
-        if self.children is None:
+        if not self.children:
             raise EmitError('EMIT ERROR: node has no children')
         assert self.children[0].kind in CALLABLE
 
@@ -167,7 +180,7 @@ class Node:
         Node.code.append((INSTR.mon, fn))
 
     def emit_dyadic_call(self) -> None:
-        if self.children is None:
+        if not self.children:
             raise EmitError('EMIT ERROR: node has no children')
         assert self.children[0].kind in CALLABLE
         
@@ -187,21 +200,29 @@ class Node:
         Node.code.append((INSTR.dya, fn))
 
     def emit_gets(self) -> None:
-        if self.children is None:
+        if not self.children:
             raise EmitError('EMIT ERROR: node has no children')
-        assert self.children[0].kind in {NodeType.ID, NodeType.FREF}
-        self.children[1].emit()
-        Node.code.append((INSTR.set, self.children[0]._mttok()))
+        assert self.children[0].kind in {NodeType.ID, NodeType.FREF, NodeType.IDX}
+
+        (receiver, value) = self.children
+        value.emit()
+
+        if receiver.kind == NodeType.IDX: # Indexed gets
+            (name, idx) = receiver.children # type: ignore
+            idx.emit()
+            Node.code.append((INSTR.seti, name._mttok()))
+        else:
+            Node.code.append((INSTR.set, receiver._mttok()))
 
     def emit_vector(self) -> None:
-        if self.children is None:                     # NOTE we need to handle ⍬ somehow
+        if not self.children:                     # NOTE we need to handle ⍬ somehow
             raise EmitError('EMIT ERROR: node has no children')
         for el in self.children:
             el.emit()
         Node.code.append((INSTR.vec, len(self.children)))
 
     def emit_chunk(self) -> list:
-        if self.children is None:
+        if not self.children:
             raise EmitError('EMIT ERROR: node has no children')  # NOTE this should probably not be an error
         for sc in self.children:
             sc.emit()
@@ -223,6 +244,8 @@ class Node:
             self.emit_scalar()
         elif self.kind == NodeType.VECTOR:
             self.emit_vector()
+        elif self.kind == NodeType.IDX:
+            self.emit_idx()
         elif self.kind in {NodeType.DFN, NodeType.FREF}:
             self.emit_dfn()
         else:    
@@ -249,6 +272,8 @@ class Node:
             return f"DOP('{self.main_token.tok}', {self.children[0]}, {self.children[1]})"
         if self.kind == NodeType.MOP:
             return f"MOP('{self.main_token.tok}', {self.children[0]})"
+        if self.kind == NodeType.IDX:
+            return f"IDX({self.children[0]}, {self.children[1]})"
         if self.kind == NodeType.VECTOR:
             body = []
             for sc in self.children:

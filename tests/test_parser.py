@@ -1,84 +1,54 @@
 import pytest 
 from apl.parser import Parser
 
+def parse(src):
+    parser = Parser()
+    ast = parser.parse(src)
+
+    if ast is None:
+        return None
+
+    return str(ast)
+
 class TestParser:
     def test_comment_only(self):
-        src = " ⍝ a comment "
-        parser = Parser()
-        ast = parser.parse(src)
-        assert ast is None
+        assert parse(" ⍝ a comment ") is None
 
     def test_empty(self):
-        src = ""
-        parser = Parser()
-        ast = parser.parse(src)
-        assert ast is None
+        assert parse("") is None
 
     def test_whitespace(self):
-        src = "         "
-        parser = Parser()
-        ast = parser.parse(src)
-        assert ast is None
+        assert parse("         ") is None
 
     def test_parser_arith(self):
-        src = "1+2"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert 'CHNK[DYADIC(FUN(+), SCALAR(1), SCALAR(2))]' == str(ast)
+        assert 'CHNK[DYADIC(FUN(+), SCALAR(1), SCALAR(2))]' == parse('1+2')
 
     def test_mop_deriving_monad(self):
-        src = "+⌿1 2 3 4 5"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[MONADIC(MOP('⌿', FUN(+)), VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4), SCALAR(5)])]" == str(ast)
+        assert parse("+⌿1 2 3 4 5") == "CHNK[MONADIC(MOP('⌿', FUN(+)), VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4), SCALAR(5)])]"
 
     def test_mop_deriving_monad2(self):
-        src = "+/1 2 3 4 5"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[MONADIC(MOP('/', FUN(+)), VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4), SCALAR(5)])]" == str(ast)
+        assert parse("+/1 2 3 4 5") == "CHNK[MONADIC(MOP('/', FUN(+)), VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4), SCALAR(5)])]"
 
     def test_mop_deriving_dyad(self):
-        src = "1 +⍨ 2"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[DYADIC(MOP('⍨', FUN(+)), SCALAR(1), SCALAR(2))]" == str(ast)
+        assert parse("1 +⍨ 2") == "CHNK[DYADIC(MOP('⍨', FUN(+)), SCALAR(1), SCALAR(2))]"
 
     def test_gets(self):
-        src = "var←99"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[GETS(ID('var'), SCALAR(99))]" == str(ast)
+        assert parse("var←99") == "CHNK[GETS(ID('var'), SCALAR(99))]"
 
     def test_diamond(self):
-        src = "v←⍳99 ⋄ s←+⌿v"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[GETS(ID('v'), MONADIC(FUN(⍳), SCALAR(99))), GETS(ID('s'), MONADIC(MOP('⌿', FUN(+)), ID('v')))]" == str(ast)
+        assert parse("v←⍳99 ⋄ s←+⌿v") == "CHNK[GETS(ID('v'), MONADIC(FUN(⍳), SCALAR(99))), GETS(ID('s'), MONADIC(MOP('⌿', FUN(+)), ID('v')))]"
 
     def test_sys(self):
-        src = "⎕IO←0"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[GETS(ID('⎕IO'), SCALAR(0))]" == str(ast)
+        assert parse("⎕IO←0") == "CHNK[GETS(ID('⎕IO'), SCALAR(0))]"
 
     def test_dop_deriving_dyad(self):
-        src = "1 2 3 ⌊⍥≢ 1 2 3 4"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[DYADIC(DOP('⍥', FUN(⌊), FUN(≢)), VEC[SCALAR(1), SCALAR(2), SCALAR(3)], VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)])]" == str(ast)
+        assert parse("1 2 3 ⌊⍥≢ 1 2 3 4") == "CHNK[DYADIC(DOP('⍥', FUN(⌊), FUN(≢)), VEC[SCALAR(1), SCALAR(2), SCALAR(3)], VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)])]"
     
     def test_gets_gets(self):
-        src = "a ← -b ← 3"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[GETS(ID('a'), MONADIC(FUN(-), GETS(ID('b'), SCALAR(3))))]" == str(ast)
+        assert parse("a ← -b ← 3") == "CHNK[GETS(ID('a'), MONADIC(FUN(-), GETS(ID('b'), SCALAR(3))))]"
     
     def test_dfn(self):
-        src = "{⍺+⍵}"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert 'CHNK[DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))]]' == str(ast)
+        assert parse("{⍺+⍵}") == 'CHNK[DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))]]'
 
     def test_gets_dfn_raises(self):
         src = 'a←{⍺+⍵}'
@@ -87,43 +57,49 @@ class TestParser:
             parser.parse(src)
 
     def test_gets_dfn(self):
-        src = "Add←{⍺+⍵}"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert 'CHNK[GETS(FREF(Add), DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))])]' == str(ast)
+        assert parse("Add←{⍺+⍵}") == 'CHNK[GETS(FREF(Add), DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))])]'
 
     def test_gets_dfn_call(self):
-        src = "a←3 {⍺+⍵} 1 2 3 4"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[GETS(ID('a'), DYADIC(DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))], SCALAR(3), VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)]))]" == str(ast)
+        assert parse("a←3 {⍺+⍵} 1 2 3 4") == "CHNK[GETS(ID('a'), DYADIC(DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))], SCALAR(3), VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)]))]"
 
     def test_gets_dfn_call2(self):
-        src = "1 {⍺+⍵} 2"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert 'CHNK[DYADIC(DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))], SCALAR(1), SCALAR(2))]' == str(ast)
+        assert parse("1 {⍺+⍵} 2") == 'CHNK[DYADIC(DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))], SCALAR(1), SCALAR(2))]'
 
     def test_strand_or_call1(self):
-        src = "1 A 2"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert 'CHNK[DYADIC(FREF(A), SCALAR(1), SCALAR(2))]' == str(ast) 
+        assert parse("1 A 2") == 'CHNK[DYADIC(FREF(A), SCALAR(1), SCALAR(2))]'
 
     def test_strand_or_call2(self):
-        src = "1 a 2"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[VEC[SCALAR(1), ID('a'), SCALAR(2)]]" == str(ast) 
+        assert parse("1 a 2") == "CHNK[VEC[SCALAR(1), ID('a'), SCALAR(2)]]"
 
     def test_dfn_inline_operand(self):
-        src = "{⍺+⍵}/⍳8"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[MONADIC(MOP('/', DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))]), MONADIC(FUN(⍳), SCALAR(8)))]" == str(ast)
+        assert parse("{⍺+⍵}/⍳8") == "CHNK[MONADIC(MOP('/', DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))]), MONADIC(FUN(⍳), SCALAR(8)))]"
 
     def test_dfn_ref_operand(self):
-        src = "Add←{⍺+⍵}⋄Add⌿⍳8"
-        parser = Parser()
-        ast = parser.parse(src)
-        assert "CHNK[GETS(FREF(Add), DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))]), MONADIC(MOP('⌿', FREF(Add)), MONADIC(FUN(⍳), SCALAR(8)))]" == str(ast)
+        assert parse("Add←{⍺+⍵}⋄Add⌿⍳8") == "CHNK[GETS(FREF(Add), DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))]), MONADIC(MOP('⌿', FREF(Add)), MONADIC(FUN(⍳), SCALAR(8)))]"
+
+class TestBracketIndexing:
+    def test_bracket_index1(self):
+        assert parse("a[2]←5") == "CHNK[GETS(IDX(ID('a'), SCALAR(2)), SCALAR(5))]"
+
+    def test_bracket_index2(self):
+        assert parse("a[2 2 3]←5 8 7") == "CHNK[GETS(IDX(ID('a'), VEC[SCALAR(2), SCALAR(2), SCALAR(3)]), VEC[SCALAR(5), SCALAR(8), SCALAR(7)])]"
+
+    def test_bracket_index_read_name(self):
+        d = parse("a[2 3]")
+        assert d == "CHNK[IDX(ID('a'), VEC[SCALAR(2), SCALAR(3)])]"
+
+    def test_bracket_index_read_vector_literal(self):
+        d = parse("1 2 3 4[2]")
+        assert d == 'CHNK[IDX(VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)], SCALAR(2))]'
+
+    def test_bracket_index_paran(self):
+        d = parse("(1 2 3 4)[2]")
+        assert d == 'CHNK[IDX(VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)], SCALAR(2))]'
+
+    def test_bracket_index_stranding(self):
+        d = parse("a[1] b[2] c[3]")
+        assert d == "CHNK[VEC[IDX(ID('a'), SCALAR(1)), IDX(ID('b'), SCALAR(2)), IDX(ID('c'), SCALAR(3))]]"
+
+    def test_bracket_index_stranding2(self):
+        d = parse("(a[1] b[2] c)[1]")
+        assert d == "CHNK[IDX(VEC[IDX(ID('a'), SCALAR(1)), IDX(ID('b'), SCALAR(2)), ID('c')], SCALAR(1))]"

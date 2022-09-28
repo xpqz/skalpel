@@ -11,7 +11,6 @@ from bitarray import bitarray
 
 import apl.arr as arr
 from apl.errors import ArityError, DomainError, LengthError, NYIError, RankError
-
 from apl.stack import Stack
 
 Signature: TypeAlias = tuple[Optional[Callable], Optional[Callable]]
@@ -20,12 +19,14 @@ class INSTR(Enum):
     psh=0
     pop=1
     set=2
-    get=3
-    mon=4
-    dya=5
-    vec=6
-    dfn=7
-    fget=8
+    seti=3
+    get=4
+    geti=5
+    mon=6
+    dya=7
+    vec=8
+    dfn=9
+    fget=10
 
 class TYPE(Enum):
     arr=0
@@ -62,10 +63,32 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
         elif instr == INSTR.set:
             env[arg] = stack.pop()[0]
 
+        elif instr == INSTR.seti:
+            if arg not in env:
+                raise ValueError(f'VALUE ERROR: Undefined name: "{arg}"')
+            if env[arg].kind != TYPE.arr:
+                raise SyntaxError("SYNTAX ERROR: Invalid modified assignment, or an attempt was made to change name class on assignment")
+            (val, idx) = stack.pop(2)
+            env[arg].payload.mutate(idx.payload, val.payload) # type: ignore
+
         elif instr == INSTR.get:
             if arg not in env:
                 raise ValueError(f'VALUE ERROR: Undefined name: "{arg}"')
             stack.push([env[arg]])
+
+        elif instr == INSTR.geti:
+            if not arg: # index into literal vector
+                (val, idx) = stack.pop(2)
+                if val.kind != TYPE.arr:
+                    raise RankError
+                stack.push([Value(val.payload.at(idx.payload), TYPE.arr)]) # type: ignore
+            else:
+                if arg not in env:
+                    raise ValueError(f'VALUE ERROR: Undefined name: "{arg}"')
+                if env[arg].kind != TYPE.arr:
+                    raise RankError
+                idx = stack.pop()[0]
+                stack.push([Value(env[arg].payload.at(idx.payload), TYPE.arr)]) # type: ignore
 
         elif instr == INSTR.dfn:
             if type(arg) == str: # by reference
@@ -556,7 +579,7 @@ def where(omega: arr.Array) -> arr.Array:
         return arr.Aflat([omega.data.count()], omega.data.search(bitarray([True]))) # type: ignore
 
     return arr.V([
-        arr.Array([omega.rank], arr.DataType.NUM, arr.ArrayType.FLAT, arr.encode(omega.shape, idx)) # type: ignore
+        arr.Array([omega.rank], arr.DataType.INT, arr.ArrayType.FLAT, arr.encode(omega.shape, idx)) # type: ignore
         for idx in omega.data.search(bitarray([True])) # type: ignore
     ])
 

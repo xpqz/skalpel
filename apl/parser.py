@@ -14,13 +14,26 @@ class Parser:
     https://mdkrajnak.github.io/ebnftest/
     https://www.bottlecaps.de/rr/ui
 
+    # chunk      ::= EOF statements
+    # statements ::= (statement DIAMOND)* statement
+    # statement  ::= ( ID GETS | vector function | function )* vector?
+    # function   ::= function MOP | function DOP f | f
+    # f          ::= FUN | LPAREN function RPAREN | dfn | fref
+    # dfn        ::= LBRACE statements RBRACE
+    # vector     ::= vector* ( scalar | ( LPAREN statement RPAREN ) )
+    # scalar     ::= INTEGER | FLOAT | ID | ALPHA | OMEGA
+
+
     chunk      ::= EOF statements
     statements ::= (statement DIAMOND)* statement
-    statement  ::= ( ID GETS | vector function | function )* vector?
+
+    statement  ::= ( ID ('[' statement ']')? GETS | vector function | function )* vector?
+
+
     function   ::= function MOP | function DOP f | f
     f          ::= FUN | LPAREN function RPAREN | dfn | fref
     dfn        ::= LBRACE statements RBRACE
-    vector     ::= vector* ( scalar | ( LPAREN statement RPAREN ) )
+    vector     ::= vector* ( scalar | ( LPAREN statement RPAREN ) ) ('[' statement ']')?
     scalar     ::= INTEGER | FLOAT | ID | ALPHA | OMEGA
     """
 
@@ -72,11 +85,19 @@ class Parser:
             statements.append(self.parse_statement())
         return statements[::-1] # NOTE: statements separated by diamond should be interpreted top to bottom
 
+    def parse_bracket_index(self) -> Optional[Node]:
+        if self.token().kind == TokenType.RBRACKET:
+            self.eat_token()
+            indexing_expression = self.parse_statement()
+            self.expect_token(TokenType.LBRACKET)
+            return indexing_expression
+        return None
+
     def parse_statement(self) -> Node:
         """
-        statement  ::= ( ID GETS | vector function | function )* vector?
+        statement  ::= ( ID ('[' statement ']')? GETS | vector function | function )* vector?
         """
-        if self.token().kind in SCALARS + [TokenType.RPAREN]:
+        if self.token().kind in SCALARS + [TokenType.RPAREN, TokenType.RBRACKET]:
             node = self.parse_vector()
         else:
             node = None
@@ -86,7 +107,8 @@ class Parser:
                 gets = self.expect_token(TokenType.GETS)
                 if node is None: 
                     raise SyntaxError
-                name = self.parse_identifier()
+                indexing_expression = self.parse_bracket_index()
+                name = self.parse_identifier(indexing_expression)
                 if node.kind in {NodeType.DFN, NodeType.FUN} and name.kind != NodeType.FREF:
                     raise SyntaxError(f"SYNTAX ERROR: named functions must start with a capital letter: '{name.main_token.tok}'") # type: ignore
                 node = Node(NodeType.GETS, gets, [name, node])
@@ -101,10 +123,16 @@ class Parser:
                         node = Node(NodeType.MONADIC, None, [fun, node])                    # Monadic application of fun
         return node  # type: ignore
 
-    def parse_identifier(self) -> Node:
+    def parse_identifier(self, indexing_expression:Optional[Node]) -> Node:
         tok = self.eat_token()
         if tok.kind == TokenType.NAME:
-            return Node(NodeType.ID, tok)
+            node = Node(NodeType.ID, tok)
+            if indexing_expression:
+                return Node(NodeType.IDX, None, [node, indexing_expression])
+            return node
+
+        if indexing_expression is not None:
+            raise SyntaxError("SYNTAX ERROR: unexpected indexing expression")
 
         if tok.kind == TokenType.FNAME:
             return Node(NodeType.FREF, tok)
@@ -156,7 +184,8 @@ class Parser:
 
     def parse_vector(self) -> Node:
         nodes = []
-        while (kind := self.token().kind) in SCALARS + [TokenType.RPAREN]:
+        idx = None
+        while (kind := self.token().kind) in SCALARS + [TokenType.RPAREN, TokenType.RBRACKET]:
             if kind == TokenType.RPAREN:
                 if self.peek_beyond([TokenType.RPAREN]).kind in SCALARS:
                     self.expect_token(TokenType.RPAREN)
@@ -164,18 +193,36 @@ class Parser:
                     self.expect_token(TokenType.LPAREN)
                 else:
                     break
+            elif kind == TokenType.RBRACKET: 
+                # Binding rules are tricky for [...]:
+                #  1 2 3[1]       ⍝ binds to whole vector
+                #  a[1] b[1] c[1] ⍝ binds to each element
+                idx = self.parse_bracket_index()
+                if self.token().kind in {TokenType.NAME, TokenType.ALPHA, TokenType.OMEGA}:
+                    nodes.append(Node(NodeType.IDX, None, [self.parse_scalar(), idx])) # type: ignore
+                    idx = None
             else:
                 nodes.append(self.parse_scalar())
+
         if len(nodes) == 1:
-            return nodes[0]
-        
-        return Node(NodeType.VECTOR, None, nodes[::-1]) 
+            vec = nodes[0]
+        else:        
+            vec = Node(NodeType.VECTOR, None, nodes[::-1])
+
+        if idx:
+            return Node(NodeType.IDX, None, [vec, idx])
+
+        return vec
 
     def parse_scalar(self) -> Node:
+        idx = self.parse_bracket_index()
         if self.token().kind == TokenType.NAME:
-            return self.parse_identifier()
+            return self.parse_identifier(idx)
 
         if self.token().kind in [TokenType.ALPHA, TokenType.OMEGA]:
-            return Node(NodeType.ARG, self.eat_token())
+            arg = Node(NodeType.ARG, self.eat_token())
+            if idx:
+                return Node(NodeType.IDX, None, [arg, idx])
+            return arg
 
         return Node(NodeType.SCALAR, self.expect_token(TokenType.SCALAR))

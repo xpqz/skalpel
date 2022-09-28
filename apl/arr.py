@@ -6,12 +6,13 @@ from apl.errors import DomainError, RankError
 from enum import Enum
 
 class DataType(Enum):
-    UINT1 = 0
-    UINT8 = 1
-    UTF   = 2
-    NUM   = 3
-    CMPLX = 4
-    MIXED = 5  # Can we be mixed without also being nested? 1 2.3 'a'
+    UINT1 = 0  # Boolean
+    UINT8 = 1  # 8-bit unsigned int
+    INT   = 2  # Any int
+    CHAR  = 3  # UTF-8
+    FLOAT = 4  # Any floating point
+    CMPLX = 5  # Complex
+    MIXED = 6  # Can we be mixed without also being nested? 1 2.3 'a'
 
     def __str__(self):
         return self.name
@@ -94,6 +95,103 @@ class Array:
 
         return [e.data[0] for e in self.data] # type: ignore
 
+    def widen(self, kind: DataType) -> None:
+        """
+        Widen our data type (if needed and possible) to fit values of `kind`
+        """
+        if self.type == kind:
+            return
+
+        if self.type == DataType.UINT1:
+            if kind == DataType.UINT8:
+                self.data = bytearray(list(self.data))
+                self.type = kind
+            elif kind in {DataType.MIXED, DataType.INT, DataType.CMPLX}:
+                self.data = list(self.data)
+                self.type = kind
+
+        elif self.type == DataType.UINT8 and kind != DataType.UINT1:
+            self.data = list(self.data)
+            self.type = kind
+
+        elif self.type in {DataType.INT, DataType.FLOAT}:
+            if kind in {DataType.MIXED, DataType.FLOAT, DataType.CMPLX}:
+                self.type = kind
+
+        elif self.type == DataType.CMPLX and kind == DataType.MIXED:
+            self.type = kind
+
+
+    def squeeze(self) -> None:
+        """
+        Squeeze self into the narrowest data type its values will allow. Try to un-mix mixed. Try to flatten nested.
+        """
+        # If each element is rank 0 and simple, we can flatten.
+        if self.array_type == ArrayType.NESTED:
+            if all(map(issimple, self.data)):
+                self.data = [elem.data[0] for elem in self.data] # type: ignore
+                self.array_type = ArrayType.FLAT
+
+        # Can we un-mix?
+        if self.array_type == ArrayType.FLAT:
+            if self.type == DataType.MIXED:
+                types = [type(e) for e in self.data]
+                if all(map(lambda i:i==complex, types)):
+                    self.type = DataType.CMPLX
+                elif all(map(lambda i:i == int, types)):
+                    self.type = DataType.INT
+                elif all(map(lambda i:i == float, types)):
+                    self.type = DataType.FLOAT
+                elif all(map(lambda i:i == str, types)):
+                    self.type = DataType.CHAR
+
+            # Try to squeeze bit width
+            if self.type in {DataType.INT, DataType.UINT8}:
+                max_val = max(self.data)
+                min_val = min(self.data)
+
+                if min_val in [0, 1] and max_val in [0, 1]:
+                    self.data = bitarray(self.data)
+                    self.data_type = DataType.UINT1
+                elif min_val in range(256) and max_val in range(256):
+                    self.data = bytearray(self.data)
+                    self.data_type = DataType.UINT8
+
+    def mutate(self, idx: 'Array', vals: 'Array') -> None:
+        """
+        Only for a subset of indexing ranks for now
+        """
+        if idx.shape != vals.shape:
+            raise RankError("RANK ERROR")
+
+        if idx.type not in {DataType.UINT1, DataType.UINT8, DataType.INT}: 
+            raise DomainError("DOMAIN ERROR")
+
+        if idx.array_type != ArrayType.FLAT: # Dyalog allows nested, but we don't for now
+            raise DomainError("DOMAIN ERROR")
+
+        self.widen(vals.type) # ensure self's data type fits the new values
+
+        valc = 0
+        for c in idx.data:
+            if c >= len(self.data) or c < 0:
+                raise IndexError
+            self.data[c] = vals.data[valc] # pick values in ravel order
+            valc += 1
+
+    def at(self, idx: 'Array') -> 'Array':
+        """
+        Only for a subset of indexing ranks for now. Should use `get()` above
+        """
+        if idx.type not in {DataType.UINT1, DataType.UINT8, DataType.INT}: 
+            raise DomainError("DOMAIN ERROR")
+
+        if idx.array_type != ArrayType.FLAT: # Dyalog allows nested, but we don't for now
+            raise DomainError(f"DOMAIN ERROR: indexing expression must be flat")
+
+        data = [self.data[c] for c in idx.data]
+        return Array.from_sequence(idx.shape, self.type, self.array_type, data)
+
 def A(shape: list[int], items: Sequence) -> Array:
     """
     Convenience 'constructor', which will ensure that simple scalars are
@@ -138,7 +236,7 @@ def Aflat(shape: list[int], data: Sequence) -> Array:
         return Array.from_sequence(shape, DataType.CMPLX, ArrayType.FLAT, data)
 
     if all(isinstance(e, str) for e in data):
-        return Array.from_sequence(shape, DataType.UTF, ArrayType.FLAT, data)
+        return Array.from_sequence(shape, DataType.CHAR, ArrayType.FLAT, data)
 
     if all(isinstance(e, int) for e in data):
         max_val = max(data)
@@ -150,10 +248,10 @@ def Aflat(shape: list[int], data: Sequence) -> Array:
         if min_val in range(256) and max_val in range(256):
             return Array.from_sequence(shape, DataType.UINT8, ArrayType.FLAT, data)
 
-        return Array.from_sequence(shape, DataType.NUM, ArrayType.FLAT, data)
+        return Array.from_sequence(shape, DataType.INT, ArrayType.FLAT, data)
 
-    if all(isinstance(e, (int, float)) for e in data):
-        return Array.from_sequence(shape, DataType.NUM, ArrayType.FLAT, data)
+    if all(isinstance(e, float) for e in data):
+        return Array.from_sequence(shape, DataType.FLOAT, ArrayType.FLAT, data)
 
     return Array.from_sequence(shape, DataType.MIXED, ArrayType.FLAT, data)
 
@@ -175,13 +273,13 @@ def S(data: Any) -> Array:
             return Array.from_sequence([], DataType.UINT1, ArrayType.FLAT, [data])
         if data in range(256):
             return Array.from_sequence([], DataType.UINT8, ArrayType.FLAT, [data])
-        return Array.from_sequence([], DataType.NUM, ArrayType.FLAT, [data])
+        return Array.from_sequence([], DataType.INT, ArrayType.FLAT, [data])
 
     if isinstance(data, float):
-        return Array.from_sequence([], DataType.NUM, ArrayType.FLAT, [data])
+        return Array.from_sequence([], DataType.FLOAT, ArrayType.FLAT, [data])
 
     if isinstance(data, str) and len(data) == 1:
-        return Array.from_sequence([], DataType.UTF, ArrayType.FLAT, [data])
+        return Array.from_sequence([], DataType.CHAR, ArrayType.FLAT, [data])
     else:
         raise ValueError
 

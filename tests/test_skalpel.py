@@ -218,3 +218,37 @@ class TestOperator:
         run(code, env, 0, stack)
         result = stack.stack[0]
         assert match(result.payload, S(3))
+
+class TestIndexing:
+    def test_indexed_gets1(self):
+        src = "a ← 1 2 3 4 ⋄ a[1] ← 99 ⋄ a"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, V([1, 99, 3, 4]))
+
+    def test_indexed_gets2(self):
+        src = "a←1 2 3 4⋄a[2 2⍴1 2]←2 2⍴9 8 7 6⋄a"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, V([1, 7, 6, 4]))
+
+    def test_indexed_read1(self):
+        src = "a←1 2 3 4⋄a[2 2⍴1 2]"
+        parser = Parser()
+        ast = parser.parse(src)
+        code = ast.emit()
+        env = {}
+        stack = Stack()
+        run(code, env, 0, stack)
+        result = stack.stack[0]
+        assert match(result.payload, Aflat([2, 2], [2, 3, 2, 3]))
