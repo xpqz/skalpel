@@ -136,3 +136,7 @@ class TestNode:
             INSTR.vec,
             INSTR.geti,
         ]
+
+    def test_indexed_read_higher_rank(self):
+        instr = compile("a←2 2⍴1 2 3 4⋄a[(1 0)(0 0)]")
+        assert instr == [INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.dya, INSTR.set, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.vec, INSTR.geti]

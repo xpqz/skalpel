@@ -654,6 +654,11 @@ def member(alpha: arr.Array, omega: arr.Array) -> arr.Array:
 def tally(omega: arr.Array) -> arr.Array:
     return arr.S(len(omega.data))
 
+def enclose(omega: arr.Array) -> arr.Array:
+    if arr.issimple(omega):
+        return omega
+    return arr.S(omega)
+
 def or_gcd(alpha: arr.Array, omega: arr.Array) -> arr.Array:
     if alpha.type == omega.type == arr.DataType.UINT1:
         f = pervade(lambda x, y:x|y, direct=True)
@@ -807,6 +812,7 @@ class Voc:
         '∨': (None,                         or_gcd),
         '∧': (None,                         and_lcm),
         '∊': (enlist,                       member),
+        '⊂': (enclose,                      None), 
         '⍉': (lambda y: transpose([], y),   lambda x, y: transpose(x.to_list(), y)),
         '⍴': (lambda y: rho(None, y),       rho),
         '⍳': (index_gen,                    None),

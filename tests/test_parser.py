@@ -92,7 +92,7 @@ class TestBracketIndexing:
         d = parse("1 2 3 4[2]")
         assert d == 'CHNK[IDX(VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)], SCALAR(2))]'
 
-    def test_bracket_index_paran(self):
+    def test_bracket_index_paren(self):
         d = parse("(1 2 3 4)[2]")
         assert d == 'CHNK[IDX(VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)], SCALAR(2))]'
 
@@ -103,3 +103,7 @@ class TestBracketIndexing:
     def test_bracket_index_stranding2(self):
         d = parse("(a[1] b[2] c)[1]")
         assert d == "CHNK[IDX(VEC[IDX(ID('a'), SCALAR(1)), IDX(ID('b'), SCALAR(2)), ID('c')], SCALAR(1))]"
+
+    def test_bracket_index_higher_rank(self):
+        d = parse("a←2 2⍴1 2 3 4⋄a[(1 0)(0 0)]")
+        assert d == "CHNK[GETS(ID('a'), DYADIC(FUN(⍴), VEC[SCALAR(2), SCALAR(2)], VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)])), IDX(ID('a'), VEC[VEC[SCALAR(1), SCALAR(0)], VEC[SCALAR(0), SCALAR(0)]])]"

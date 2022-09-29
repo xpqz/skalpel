@@ -181,15 +181,16 @@ class Array:
 
     def at(self, idx: 'Array') -> 'Array':
         """
-        Only for a subset of indexing ranks for now. Should use `get()` above
+        Indexing. See https://aplwiki.com/wiki/Bracket_indexing
         """
-        if idx.type not in {DataType.UINT1, DataType.UINT8, DataType.INT}: 
-            raise DomainError("DOMAIN ERROR")
+        if idx.array_type == ArrayType.FLAT:         
+            data = [self.data[c] for c in idx.data] # basic indexing (without semi colons)
+        elif idx.rank == 0:                         # choose indexing (single element)
+            data = [self.data[decode(self.shape, list(idx.data[0].data))]] # type: ignore
+        else:                                       # choose indexing (multiple elements)
+            data = [self.data[decode(self.shape, list(disclose(c).data))] for c in idx.data]
 
-        if idx.array_type != ArrayType.FLAT: # Dyalog allows nested, but we don't for now
-            raise DomainError(f"DOMAIN ERROR: indexing expression must be flat")
-
-        data = [self.data[c] for c in idx.data]
+        # reach indexing nyi
         return Array.from_sequence(idx.shape, self.type, self.array_type, data)
 
 def A(shape: list[int], items: Sequence) -> Array:
