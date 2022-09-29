@@ -1,4 +1,4 @@
-from apl.arr import Array, Aflat, S, V, match
+from apl.arr import Array, A, Aflat, S, V, match
 from apl.parser import Parser
 from apl.skalpel import run, TYPE
 from apl.stack import Stack
@@ -151,3 +151,13 @@ class TestIndexing:
         src = "a←2 2⍴1 2 3 4⋄a[⊂1 0]"
         result = run_code(src)
         assert match(result.payload, S(3))
+
+    def test_indexed_gets_high_rank(self):
+        src = "a←2 2⍴1 2 3 4⋄a[(1 0)(0 0)]←9 8⋄a"
+        result = run_code(src)
+        assert match(result.payload, Aflat([2, 2], [8, 2, 9, 4]))
+
+    def test_indexed_gets_high_rank_enclose(self):
+        src = "a←2 2⍴1 2 3 4⋄a[⊂1 0]←9⋄a"
+        result = run_code(src)
+        assert match(result.payload, Aflat([2, 2], [1, 2, 9, 4]))

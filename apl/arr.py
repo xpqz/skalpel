@@ -159,24 +159,25 @@ class Array:
 
     def mutate(self, idx: 'Array', vals: 'Array') -> None:
         """
-        Only for a subset of indexing ranks for now
+        Only for a subset of indexing modes for now.
+
+        See https://aplwiki.com/wiki/Bracket_indexing
         """
         if idx.shape != vals.shape:
             raise RankError("RANK ERROR")
 
-        if idx.type not in {DataType.UINT1, DataType.UINT8, DataType.INT}: 
-            raise DomainError("DOMAIN ERROR")
-
-        if idx.array_type != ArrayType.FLAT: # Dyalog allows nested, but we don't for now
-            raise DomainError("DOMAIN ERROR")
-
         self.widen(vals.type) # ensure self's data type fits the new values
 
+        if idx.array_type == ArrayType.FLAT:
+            loc = idx.data
+        elif idx.rank == 0:
+            loc = [decode(self.shape, list(idx.data[0].data))] # type: ignore
+        else:
+            loc = [decode(self.shape, list(disclose(c).data)) for c in idx.data]
+           
         valc = 0
-        for c in idx.data:
-            if c >= len(self.data) or c < 0:
-                raise IndexError
-            self.data[c] = vals.data[valc] # pick values in ravel order
+        for c in loc:
+            self.data[c] = vals.data[valc]
             valc += 1
 
     def at(self, idx: 'Array') -> 'Array':
