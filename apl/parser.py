@@ -3,7 +3,7 @@ from apl.errors import UnexpectedToken
 from apl.node import Node, NodeType
 from apl.tokeniser import Token, Tokeniser, TokenType
 
-SCALARS = [TokenType.SCALAR, TokenType.NAME, TokenType.ALPHA, TokenType.OMEGA]
+SCALARS = [TokenType.SCALAR, TokenType.NAME, TokenType.ALPHA, TokenType.OMEGA, TokenType.ZILDE]
 DYADIC_OPS = set('⍥@⍣⍤∘.⌺⍠') # FIXME: this should use Voc!!
 MONADIC_OPS = set('\\/⌿⍀¨⍨')
 
@@ -97,7 +97,7 @@ class Parser:
         """
         statement  ::= ( ID ('[' statement ']')? GETS | vector function | function )* vector?
         """
-        if self.token().kind in SCALARS + [TokenType.RPAREN, TokenType.RBRACKET]:
+        if self.token().kind in SCALARS + [TokenType.RPAREN, TokenType.RBRACKET, TokenType.ZILDE]:
             node = self.parse_vector()
         else:
             node = None
@@ -198,7 +198,7 @@ class Parser:
                 #  1 2 3[1]       ⍝ binds to whole vector
                 #  a[1] b[1] c[1] ⍝ binds to each element
                 idx = self.parse_bracket_index()
-                if self.token().kind in {TokenType.NAME, TokenType.ALPHA, TokenType.OMEGA}:
+                if self.token().kind in {TokenType.NAME, TokenType.ALPHA, TokenType.OMEGA, TokenType.ZILDE}:
                     nodes.append(Node(NodeType.IDX, None, [self.parse_scalar(), idx])) # type: ignore
                     idx = None
             else:
@@ -218,6 +218,9 @@ class Parser:
         idx = self.parse_bracket_index()
         if self.token().kind == TokenType.NAME:
             return self.parse_identifier(idx)
+
+        if self.token().kind == TokenType.ZILDE:
+            return Node(NodeType.SYSTEM, self.expect_token(TokenType.ZILDE))
 
         if self.token().kind in [TokenType.ALPHA, TokenType.OMEGA]:
             arg = Node(NodeType.ARG, self.eat_token())

@@ -19,6 +19,7 @@ class NodeType(Enum):
     MONADIC = auto()
     VECTOR = auto()
     SCALAR = auto()
+    SYSTEM = auto()
     CHUNK = auto()
 
 NodeList: TypeAlias = list['Node'] # type: ignore
@@ -82,6 +83,17 @@ class Node:
             return None
 
         return self.derived_dyad()
+
+    def emit_system(self) -> None:
+        if not self.main_token or type(self.main_token.tok) != str:
+            raise SyntaxError(f'SYNTAX ERROR: expected a system array')
+        token = self.main_token.tok
+        val = Voc.arrs.get(token)
+        if not val:
+            val = Voc.arrs.get(token.lower())
+            if not val:
+                raise ValueError(f'VALUE ERROR: unknown system array "{token}"')
+        Node.code.append((INSTR.get, token.upper()))
 
     def emit_scalar(self) -> None:
         if not self.main_token:
@@ -238,6 +250,8 @@ class Node:
             self.emit_gets()
         elif self.kind in {NodeType.ID, NodeType.ARG}:
             self.emit_id()
+        elif self.kind == NodeType.SYSTEM:
+            self.emit_system()
         elif self.kind == NodeType.MONADIC:
             self.emit_monadic_call()
         elif self.kind == NodeType.SCALAR:
@@ -254,6 +268,8 @@ class Node:
     def __str__(self):
         if self.kind == NodeType.ARG:
             return f"ARG({self.main_token.tok})"
+        if self.kind == NodeType.SYSTEM:
+            return f"SYS({self.main_token.tok})"
         if self.kind == NodeType.SCALAR:
             return f"SCALAR({self.main_token.tok})"
         if self.kind == NodeType.FUN:

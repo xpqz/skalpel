@@ -30,11 +30,12 @@ There are actually quite a few open source APL-alikes around, and the intrepid n
 * [ivy](https://github.com/robpike/ivy)
 * [kap](https://github.com/lokedhs/array)
 * [ngn/apl](https://github.com/abrudz/ngn-apl)
+* [pometo](https://github.com/gordonguthrie/pometo)
 * [RGS/apl](https://mathspp.com/blog/lsbasi-apl-part1)
 
 ## Install
 
-If you really want to go there, you'll need [poetry](https://python-poetry.org/). You also need a bang-up-to-date version of Python (I use 3.10). At the moment, it only has one dependency, [bitarray](https://pypi.org/project/bitarray/). `skalpel` is type-annotated.
+If you really want to go there, you'll need [poetry](https://python-poetry.org/). You also need a bang-up-to-date version of Python (I use 3.10). At the moment, it only has one dependency, [bitarray](https://pypi.org/project/bitarray/). `skalpel` is type-annotated. Haters will hate.
 
 1. `git clone git@github.com:xpqz/skalpel.git`
 2. `cd skalpel; poetry install; poetry shell`

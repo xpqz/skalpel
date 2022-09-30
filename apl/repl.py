@@ -77,11 +77,11 @@ def main():
         if stack.stackptr == 0: # Single element
             result = stack.pop()[0]
             if style == 'python':
-                print(f")py {result.payload}")
+                print(result.payload)
             else:
                 try:
                     disp(result.payload)
-                except:
+                except: # We hit a rendering bug in `disp()`, of which there are likely many
                     print(f"* {result.payload}")
 
 if __name__=="__main__":

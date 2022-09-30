@@ -161,3 +161,20 @@ class TestIndexing:
         src = "a←2 2⍴1 2 3 4⋄a[⊂1 0]←9⋄a"
         result = run_code(src)
         assert match(result.payload, Aflat([2, 2], [1, 2, 9, 4]))
+
+class TestSystemArrays:
+    def test_zilde(self):
+        src = "⍬"
+        result = run_code(src)
+        assert match(result.payload, Array.zilde())
+
+    def test_zilde2(self):
+        src = "⍬≡0⍴0"
+        result = run_code(src)
+        assert match(result.payload, S(1))
+
+    def test_d(self):
+        src = "⎕D≡0 1 2 3 4 5 6 7 8 9"
+        result = run_code(src)
+        assert match(result.payload, S(1))
+

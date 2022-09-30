@@ -2,7 +2,7 @@ import itertools
 import math
 from typing import Any, Iterator, Sequence
 from bitarray import bitarray
-from apl.errors import DomainError, RankError
+from apl.errors import DomainError, RankError, NYIError
 from enum import Enum
 
 class DataType(Enum):
@@ -38,6 +38,10 @@ class Array:
         self.array_type = array_type
 
     @classmethod
+    def zilde(cls):
+        return cls([0], DataType.UINT1, ArrayType.FLAT, bitarray([]))
+
+    @classmethod
     def from_sequence(cls, shape: list[int], data_type: DataType, array_type: ArrayType, data: Sequence):
         """
         from_sequence builds an array from a sequence of things, including other arrays:
@@ -57,6 +61,9 @@ class Array:
         return self.__str__()
 
     def __str__(self):
+        if self.shape == [] and self.data == [] and self.type == DataType.INT:
+            return 'Z(⍬)'
+
         if isinstance(self.data, (bitarray, bytearray)):
             data = [int(i) for i in self.data]  # Harmonise presentation of all non-list array providers
         elif self.array_type == ArrayType.FLAT and isinstance(self.data[0], str):
@@ -71,6 +78,19 @@ class Array:
             return f"V({self.type}, {self.array_type}, {data})"      
 
         return f"A({self.shape}, {self.type}, {self.array_type}, {data})"
+
+    def prototype(self) -> 'Array':
+        if self.type in {DataType.INT, DataType.UINT8, DataType.UINT1}:
+            return Array.from_sequence([1], DataType.UINT1, ArrayType.FLAT, [0])
+
+        if self.type == DataType.CHAR:
+            return Array.from_sequence([1], DataType.CHAR, ArrayType.FLAT, [' '])
+
+        if self.type == DataType.MIXED:
+            return Array.from_sequence([1], DataType.MIXED, ArrayType.FLAT, [self.data[0]])
+
+        raise NYIError(f"NYI: unknown array type {self.type}")
+
 
     def get(self, coords: Sequence[int]) -> Any:
         """
@@ -455,6 +475,9 @@ def index_cell(arr: Array, ind: Sequence[int]) -> Array:
 
     return Array.from_sequence(csh, arr.type, arr.array_type, data) # type: ignore
     
+def zilde() -> Array:
+    return Array([0], DataType.UINT1, ArrayType.FLAT, [])
+
 def match(alpha: Array, omega: Array) -> bool:
     if not isnested(alpha) and not isnested(omega) and alpha.shape == omega.shape:
         if alpha.type == omega.type:

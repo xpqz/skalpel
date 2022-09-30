@@ -12,9 +12,9 @@ for known formatting errors.
 """
 from typing import Sequence
 from functools import reduce
-from apl.arr import Array, issimple, disclose, coords, kcells
+from apl.arr import Array, issimple, disclose, coords, kcells, DataType, S
 
-def encase_vector(res: list, nested: bool) -> list:
+def encase_vector(res: list, nested: bool, empty: bool=False) -> list:
     """
     Surround a vector with a frame.
     """
@@ -36,7 +36,10 @@ def encase_vector(res: list, nested: bool) -> list:
         rows.append(list(reduce(lambda x, y:list(x)+[' ']+list(y), row))) # type: ignore
 
     cols = max(map(len, rows))
-    encased = [list("┌→"+'─'*(cols-1)+"┐")]
+    if empty:
+        encased = [list("┌⊖"+'─'*(cols-1)+"┐")]
+    else:
+        encased = [list("┌→"+'─'*(cols-1)+"┐")]
     for r in rows:
         encased.append(['│']+r+['│'])
     encased.append(list(f"└{vtype}"+'─'*(cols-1)+"┘"))
@@ -52,7 +55,7 @@ def encase_enclosure(res: list) -> list:
 
     return encased
 
-def encase(shape: Sequence[int], res: list, nested: bool, wrap: bool=True) -> list:
+def encase(shape: Sequence[int], res: list, *, nested: bool, empty: bool, wrap: bool=True) -> list:
     """
     Surround a character-array representation of an array with a frame.
     """
@@ -60,7 +63,7 @@ def encase(shape: Sequence[int], res: list, nested: bool, wrap: bool=True) -> li
         return encase_enclosure(res)
 
     if len(shape) == 1:
-        return encase_vector(res, nested)
+        return encase_vector(res, nested, empty)
 
     vtype = '∊' if nested else '~'
 
@@ -104,15 +107,23 @@ def encase(shape: Sequence[int], res: list, nested: bool, wrap: bool=True) -> li
                 r.extend([' ']*(cols-len(r)))
             encased.append([' ']+r+[' '])
     else:
-        cols = max(map(len, rows))
-        encased = [list("┌→"+'─'*(cols-1)+"┐")]
+        if empty:
+            cols = 1
+            rows = res
+            encased = [list("┌⊖"+'─'*(cols-1)+"┐")]    
+        else:
+            cols = max(map(len, rows))
+            encased = [list("┌→"+'─'*(cols-1)+"┐")]
         for r in rows:
             if len(r)<cols: # Account for cell separators added
                 r.extend([' ']*(cols-len(r)))
             encased.append(['│']+r+['│'])
         encased.append(list(f"└{vtype}"+'─'*(cols-1)+"┘"))
         if len(shape) == 2:
-            encased[1][0] = '↓'
+            if empty:
+                encased[1][0] = '⌽'
+            else:
+                encased[1][0] = '↓'
 
     return encased
 
@@ -121,19 +132,25 @@ def _format(a: Array, frame: bool=True) -> list:
     Dispatch rendering on rank of cells in a.
     """
     if a.shape == []: # I am enclosed
-        return encase([], _format(disclose(a)), True)
+        elem = disclose(a)
+        return encase([], _format(elem), nested=True, empty=elem.shape==[0], wrap=True)
 
     res = []
     nested = False
+    empty = False
     for c in coords(a.shape):
-        cell = disclose(a.get(c))
-        if issimple(cell): # simple scalar
+        try: # Ugh.. dealing with empties; not great
+            cell = disclose(a.get(c))
+        except IndexError:
+            empty = True
+            cell = a.prototype()
+        if issimple(cell) or empty: # simple scalar
             res.append([(str(cell.data[0]).replace('-', '¯'))])
         else:
             nested = True
             res.append(box(cell))
 
-    return encase(a.shape, res, nested, frame)
+    return encase(a.shape, res, nested=nested, empty=empty, wrap=frame)
 
 def box(mat: Array) -> list:
     """
