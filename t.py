@@ -46,7 +46,11 @@ def compare(a: str, b: str) -> bool:
     except:
         return False
 
-    return match(result_a, result_b)
+    try:
+        return match(result_a, result_b)
+    except:
+        print(f"Exception thrown for match({a}, {b})")
+    return False
     
 def compare_throws(a: str, aplerror: Exception) -> bool:
     try:
@@ -65,29 +69,24 @@ def main() -> None:
     failed = []
     succeeded = []
     for t in tests:
-        # print(t)
+        if '∞' in t: # ngn/apl has a few custom glyphs; skip for now
+            continue
         if " ←→ " in t:
             data = t.split(" ←→ ")
             if not compare(data[0], data[1]):
-                print(f"failed: {t}")
                 failed.append(t)
             else:
-                # print(f"succeeded: {t}")
                 succeeded.append(t)
         elif " !! " in t:
             data = t.split(" !! ")
             if data[1] not in EXCEPTIONS:
-                # print(f"failed: {t}")
                 failed.append(t)
             elif not compare_throws(data[0], EXCEPTIONS[data[1]]): # type: ignore
-                # print(f"failed: {t}")
                 failed.append(t)
             else:
-                print(f"succeeded: {t}")
                 succeeded.append(t)
         else:
             pass
-            # print(f"Malformed test: {t}")
 
     print(f'failed:    {len(failed)}\nsucceeded: {len(succeeded)}')
 

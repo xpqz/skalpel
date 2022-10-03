@@ -140,3 +140,7 @@ class TestNode:
     def test_indexed_read_higher_rank(self):
         instr = compile("a←2 2⍴1 2 3 4⋄a[(1 0)(0 0)]")
         assert instr == [INSTR.push, INSTR.push, INSTR.vec, INSTR.push, INSTR.push, INSTR.push, INSTR.push, INSTR.vec, INSTR.dya, INSTR.set, INSTR.push, INSTR.push, INSTR.vec, INSTR.push, INSTR.push, INSTR.vec, INSTR.vec, INSTR.geti]
+
+    def test_two_d_zilde(self):
+        instr = compile('2 3⍴⍬')
+        assert instr == [INSTR.push, INSTR.push, INSTR.vec, INSTR.get, INSTR.dya]

@@ -608,10 +608,16 @@ def rho(alpha: Optional[arr.Array], omega: arr.Array) -> arr.Array:
     if alpha is None: # Monadic
         return arr.Aflat([len(omega.shape)], omega.shape)
 
-    if not arr.isnested(omega):
-        return arr.Aflat(alpha.to_list(), omega.data) # type: ignore
+    data = omega.data
+    if omega.bound == 0:
+        # ⍴ coerces the prototype if there is no data
+        # https://chat.stackexchange.com/transcript/message/62125233#62125233
+        data = [omega.prototypal_element()]
 
-    return arr.A(alpha.to_list(), omega.data) # type: ignore
+    if not arr.isnested(omega):
+        return arr.Aflat(alpha.to_list(), data) # type: ignore
+
+    return arr.A(alpha.to_list(), data) # type: ignore
 
 def enlist(omega: arr.Array) -> arr.Array:
     """

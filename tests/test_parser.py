@@ -77,6 +77,10 @@ class TestParser:
     def test_dfn_ref_operand(self):
         assert parse("Add←{⍺+⍵}⋄Add⌿⍳8") == "CHNK[GETS(FREF(Add), DFN[DYADIC(FUN(+), ARG(⍺), ARG(⍵))]), MONADIC(MOP('⌿', FREF(Add)), MONADIC(FUN(⍳), SCALAR(8)))]"
 
+    def test_two_d_zilde(self):
+        d = parse('2 3⍴⍬')
+        assert d == 'CHNK[DYADIC(FUN(⍴), VEC[SCALAR(2), SCALAR(3)], SYS(⍬))]'
+
 class TestBracketIndexing:
     def test_bracket_index1(self):
         assert parse("a[2]←5") == "CHNK[GETS(IDX(ID('a'), SCALAR(2)), SCALAR(5))]"
@@ -115,4 +119,4 @@ class TestCharVec:
 
     def test_gets(self):
         d = parse("a←'hello world'")
-        print()
+        assert d == "CHNK[GETS(ID('a'), VEC[SCALAR(h), SCALAR(e), SCALAR(l), SCALAR(l), SCALAR(o), SCALAR( ), SCALAR(w), SCALAR(o), SCALAR(r), SCALAR(l), SCALAR(d)])]"

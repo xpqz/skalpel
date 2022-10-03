@@ -173,6 +173,11 @@ class TestSystemArrays:
         result = run_code(src)
         assert match(result.payload, S(1))
 
+    def test_zilde3(self):
+        src = '(2 3⍴⍬)≡2 3⍴0'
+        result = run_code(src)
+        assert match(result.payload, S(1))
+
     def test_d(self):
         src = "⎕D≡0 1 2 3 4 5 6 7 8 9"
         result = run_code(src)

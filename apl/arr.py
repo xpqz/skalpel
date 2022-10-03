@@ -80,14 +80,27 @@ class Array:
         return f"A({self.shape}, {self.type}, {self.array_type}, {data})"
 
     def prototype(self) -> 'Array':
+        elem = self.prototypal_element()
         if self.type in {DataType.INT, DataType.UINT8, DataType.UINT1}:
-            return Array.from_sequence([1], DataType.UINT1, ArrayType.FLAT, [0])
+            return Array.from_sequence([1], DataType.UINT1, ArrayType.FLAT, [elem])
 
         if self.type == DataType.CHAR:
-            return Array.from_sequence([1], DataType.CHAR, ArrayType.FLAT, [' '])
+            return Array.from_sequence([1], DataType.CHAR, ArrayType.FLAT, [elem])
 
         if self.type == DataType.MIXED:
-            return Array.from_sequence([1], DataType.MIXED, ArrayType.FLAT, [self.data[0]])
+            return Array.from_sequence([1], DataType.MIXED, ArrayType.FLAT, [elem])
+
+        raise NYIError(f"NYI: unknown array type {self.type}")
+
+    def prototypal_element(self) -> Any:
+        if self.type in {DataType.INT, DataType.UINT8, DataType.UINT1}:
+            return 0
+
+        if self.type == DataType.CHAR:
+            return ' '
+
+        if self.type == DataType.MIXED:
+            return self.data[0]
 
         raise NYIError(f"NYI: unknown array type {self.type}")
 
@@ -251,6 +264,12 @@ def Aflat(shape: list[int], data: Sequence) -> Array:
     into which it will fit. If data contains other arrays, Aflat will throw
     a ValueError.
     """
+    if not data or isinstance(data, bitarray):
+        return Array.from_sequence(shape, DataType.UINT1, ArrayType.FLAT, data)
+
+    if isinstance(data, bytearray):
+        return Array.from_sequence(shape, DataType.UINT8, ArrayType.FLAT, data)
+
     if any(isinstance(e, Array) for e in data):
         raise ValueError
 
