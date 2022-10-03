@@ -16,17 +16,17 @@ from apl.stack import Stack
 Signature: TypeAlias = tuple[Optional[Callable], Optional[Callable]]
 
 class INSTR(Enum):
-    psh=0
-    pop=1
-    set=2
-    seti=3
-    get=4
-    geti=5
-    mon=6
-    dya=7
-    vec=8
-    dfn=9
-    fget=10
+    push=0     # push scalar
+    fun=1      # push function name
+    pop=2      # pop stack
+    set=3      # create variable
+    seti=4     # modify variable by index
+    get=5      # retrieve value by name
+    geti=6     # retrieve value @ index
+    mon=7      # monadic call
+    dya=8      # dyadic call
+    vec=9      # vector
+    dfn=10     # define dfn
 
 class TYPE(Enum):
     arr=0
@@ -54,11 +54,11 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
     while ip < len(code):
         (instr, arg) = code[ip]
         ip += 1
-        if instr == INSTR.psh:
-            if isinstance(arg, str):
+        if instr == INSTR.push:
+            stack.push([Value(arr.S(arg), TYPE.arr)])
+
+        elif instr == INSTR.fun:
                 stack.push([Value(arg, TYPE.fun)])
-            else:
-                stack.push([Value(arr.S(arg), TYPE.arr)])
 
         elif instr == INSTR.set:
             env[arg] = stack.pop()[0]

@@ -107,3 +107,12 @@ class TestBracketIndexing:
     def test_bracket_index_higher_rank(self):
         d = parse("a←2 2⍴1 2 3 4⋄a[(1 0)(0 0)]")
         assert d == "CHNK[GETS(ID('a'), DYADIC(FUN(⍴), VEC[SCALAR(2), SCALAR(2)], VEC[SCALAR(1), SCALAR(2), SCALAR(3), SCALAR(4)])), IDX(ID('a'), VEC[VEC[SCALAR(1), SCALAR(0)], VEC[SCALAR(0), SCALAR(0)]])]"
+
+class TestCharVec:
+    def test_single_char(self):
+        d = parse("'c'")
+        assert d == 'CHNK[SCALAR(c)]'
+
+    def test_gets(self):
+        d = parse("a←'hello world'")
+        print()

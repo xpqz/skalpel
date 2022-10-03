@@ -10,50 +10,50 @@ def compile(src):
 class TestNode:
     def test_arith(self):
         instr = compile("1+2")
-        assert instr == [INSTR.psh, INSTR.psh, INSTR.dya]
+        assert instr == [INSTR.push, INSTR.push, INSTR.dya]
 
     def test_mop_deriving_monad(self):
         instr = compile("+⌿1 2 3 4 5")
         assert instr == [
-            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.mon,
+            INSTR.push, INSTR.push, INSTR.push, INSTR.push, INSTR.push, INSTR.vec, INSTR.fun, INSTR.mon,
         ]
         
     def test_mop_deriving_dyad(self):
         instr = compile("1 +⍨ 2")
         assert instr == [
-            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.dya
+            INSTR.push, INSTR.push, INSTR.fun, INSTR.dya
         ]
 
     def test_gets(self):
         instr = compile("var←99")
-        assert instr == [INSTR.psh, INSTR.set]
+        assert instr == [INSTR.push, INSTR.set]
 
     def test_diamond(self):
         instr = compile("v←⍳99 ⋄ s←+⌿v")
         assert instr == [
-            INSTR.psh, INSTR.mon, INSTR.set, INSTR.get, INSTR.psh, INSTR.mon, INSTR.set,
+            INSTR.push, INSTR.mon, INSTR.set, INSTR.get, INSTR.fun, INSTR.mon, INSTR.set,
         ]
 
     def test_sys(self):
         instr = compile("⎕IO←0")
-        assert instr == [INSTR.psh, INSTR.set]
+        assert instr == [INSTR.push, INSTR.set]
 
     def test_dop_deriving_dyad(self):
         instr = compile("1 2 3 ⌊⍥≢ 1 2 3 4")
         assert instr == [
-            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.psh, INSTR.dya,  
+            INSTR.push, INSTR.push, INSTR.push, INSTR.vec, INSTR.push, INSTR.push, INSTR.push, INSTR.push, INSTR.vec, INSTR.fun, INSTR.fun, INSTR.dya,  
         ]
 
     def test_dfn_call(self):
         instr = compile('1 {⍺+⍵} 2')
         assert instr == [
-            INSTR.psh, INSTR.psh, INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.dya
+            INSTR.push, INSTR.push, INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.dya
         ]
 
     def test_dfn_operand_inline(self):
         instr = compile('{⍺+⍵}/1 2 3 4')
         assert instr == [
-            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.mon
+            INSTR.push, INSTR.push, INSTR.push, INSTR.push, INSTR.vec, INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.mon
         ]
     
 
@@ -83,20 +83,20 @@ class TestNode:
         code = ast.emit()
         instr = [line[0] for line in code]
         assert instr == [
-            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.psh, INSTR.psh, INSTR.dya
+            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.push, INSTR.push, INSTR.dya
         ]
         assert code[7][1] == 'Add' # call by reference
 
     def test_dfn_ref_operand(self):
         instr = compile("A/1 2 3")
         assert instr == [
-            INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.mon
+            INSTR.push, INSTR.push, INSTR.push, INSTR.vec, INSTR.fun, INSTR.mon
         ]    
 
     def test_dfn_ref_operand2(self):    
         instr = compile("Add←{⍺+⍵}⋄Add/⍳8")
         assert instr == [
-            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.psh, INSTR.mon, INSTR.psh, INSTR.mon
+            INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.set, INSTR.push, INSTR.mon, INSTR.fun, INSTR.mon
         ]   
     
     def test_early_return(self):
@@ -108,21 +108,21 @@ class TestNode:
     def test_indexed_gets1(self):
         instr = compile("a[2]←9")
         assert instr == [
-            INSTR.psh,
-            INSTR.psh,
+            INSTR.push,
+            INSTR.push,
             INSTR.seti,
         ]
 
     def test_indexed_gets2(self):
         instr = compile("a[2 3 4]←9 8 7")
         assert instr == [
-            INSTR.psh,
-            INSTR.psh,
-            INSTR.psh,
+            INSTR.push,
+            INSTR.push,
+            INSTR.push,
             INSTR.vec,
-            INSTR.psh,
-            INSTR.psh,
-            INSTR.psh,
+            INSTR.push,
+            INSTR.push,
+            INSTR.push,
             INSTR.vec,
             INSTR.seti,
         ]
@@ -130,13 +130,13 @@ class TestNode:
     def test_indexed_read1(self):
         instr = compile("a[2 3 4]")
         assert instr == [
-            INSTR.psh,
-            INSTR.psh,
-            INSTR.psh,
+            INSTR.push,
+            INSTR.push,
+            INSTR.push,
             INSTR.vec,
             INSTR.geti,
         ]
 
     def test_indexed_read_higher_rank(self):
         instr = compile("a←2 2⍴1 2 3 4⋄a[(1 0)(0 0)]")
-        assert instr == [INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.dya, INSTR.set, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.psh, INSTR.psh, INSTR.vec, INSTR.vec, INSTR.geti]
+        assert instr == [INSTR.push, INSTR.push, INSTR.vec, INSTR.push, INSTR.push, INSTR.push, INSTR.push, INSTR.vec, INSTR.dya, INSTR.set, INSTR.push, INSTR.push, INSTR.vec, INSTR.push, INSTR.push, INSTR.vec, INSTR.vec, INSTR.geti]

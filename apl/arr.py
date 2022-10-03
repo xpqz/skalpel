@@ -281,6 +281,9 @@ def S(data: Any) -> Array:
     """
     Create a scalar.
     """
+    if isinstance(data, str) and len(data) == 1: # Py treats a single char as a vector length 1
+        return Array.from_sequence([], DataType.CHAR, ArrayType.FLAT, data)
+
     if isinstance(data, Sequence):
         raise RankError
 
@@ -300,10 +303,7 @@ def S(data: Any) -> Array:
     if isinstance(data, float):
         return Array.from_sequence([], DataType.FLOAT, ArrayType.FLAT, [data])
 
-    if isinstance(data, str) and len(data) == 1:
-        return Array.from_sequence([], DataType.CHAR, ArrayType.FLAT, [data])
-    else:
-        raise ValueError
+    raise ValueError
 
 def V(data: Sequence) -> Array:
     """

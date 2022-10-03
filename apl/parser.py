@@ -97,7 +97,7 @@ class Parser:
         """
         statement  ::= ( ID ('[' statement ']')? GETS | vector function | function )* vector?
         """
-        if self.token().kind in SCALARS + [TokenType.RPAREN, TokenType.RBRACKET, TokenType.ZILDE]:
+        if self.token().kind in SCALARS + [TokenType.RPAREN, TokenType.RBRACKET, TokenType.ZILDE, TokenType.SINGLEQUOTE]:
             node = self.parse_vector()
         else:
             node = None
@@ -182,10 +182,21 @@ class Parser:
         self.expect_token(TokenType.LBRACE)
         return Node(NodeType.DFN, None, statements)
 
+    def parse_string(self) -> Node:
+        chvec: list[Node] = []
+        self.expect_token(TokenType.SINGLEQUOTE)
+        while self.token().kind != TokenType.SINGLEQUOTE:
+            chvec.append(Node(NodeType.SCALAR, self.eat_token()))
+        self.expect_token(TokenType.SINGLEQUOTE)
+        data = list(reversed(chvec))
+        if len(data) == 1:
+            return chvec[0]
+        return Node(NodeType.VECTOR, None, list(reversed(chvec)))
+
     def parse_vector(self) -> Node:
         nodes = []
         idx = None
-        while (kind := self.token().kind) in SCALARS + [TokenType.RPAREN, TokenType.RBRACKET]:
+        while (kind := self.token().kind) in SCALARS + [TokenType.RPAREN, TokenType.RBRACKET, TokenType.SINGLEQUOTE]:
             if kind == TokenType.RPAREN:
                 if self.peek_beyond([TokenType.RPAREN]).kind in SCALARS:
                     self.expect_token(TokenType.RPAREN)
@@ -201,6 +212,9 @@ class Parser:
                 if self.token().kind in {TokenType.NAME, TokenType.ALPHA, TokenType.OMEGA, TokenType.ZILDE}:
                     nodes.append(Node(NodeType.IDX, None, [self.parse_scalar(), idx])) # type: ignore
                     idx = None
+
+            elif kind == TokenType.SINGLEQUOTE:
+                nodes.append(self.parse_string())
             else:
                 nodes.append(self.parse_scalar())
 

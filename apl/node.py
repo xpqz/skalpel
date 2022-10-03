@@ -98,7 +98,7 @@ class Node:
     def emit_scalar(self) -> None:
         if not self.main_token:
             raise EmitError('EMIT ERROR: main_token is undefined')
-        Node.code.append((INSTR.psh, self.main_token.tok))
+        Node.code.append((INSTR.push, self.main_token.tok))
 
     def emit_idx(self) -> None:
         if not self.children:
@@ -132,7 +132,7 @@ class Node:
                 right = self.children[1].monadic_function()
             else:
                 right = self.children[1].dyadic_function()        
-            Node.code.append((INSTR.psh, right))
+            Node.code.append((INSTR.fun, right))
 
         if op.left == Arity.MONAD:
             left = self.children[0].monadic_function()
@@ -140,7 +140,7 @@ class Node:
             left = self.children[0].dyadic_function()
 
         if left: # Note: for in-line dfns we already have the dfn on the stack
-            Node.code.append((INSTR.psh, left))
+            Node.code.append((INSTR.fun, left))
 
         return op_name
 
@@ -161,7 +161,7 @@ class Node:
                 right = self.children[1].dyadic_function()
     
             if right:
-                Node.code.append((INSTR.psh, right))
+                Node.code.append((INSTR.fun, right))
 
         if op.left == Arity.MONAD:
             left = self.children[0].monadic_function()
@@ -169,7 +169,7 @@ class Node:
             left = self.children[0].dyadic_function()
     
         if left: # Note: for in-line dfns we already have the dfn on the stack
-            Node.code.append((INSTR.psh, left))
+            Node.code.append((INSTR.fun, left))
 
         return op_name
 

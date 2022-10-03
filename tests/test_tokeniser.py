@@ -143,3 +143,11 @@ class TestTokeniser:
         assert tokens[13].kind == TokenType.RBRACE
         assert tokens[13].tok == '}'
 
+    def test_char(self):
+        src = "'c'"
+        tokeniser = Tokeniser(src)
+        tokens = tokeniser.lex()
+        assert tokens[0].kind == TokenType.EOF
+        assert tokens[1].kind == TokenType.SINGLEQUOTE
+        assert tokens[2].kind == TokenType.SCALAR
+        assert tokens[3].kind == TokenType.SINGLEQUOTE

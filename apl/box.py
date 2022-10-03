@@ -14,26 +14,31 @@ from typing import Sequence
 from functools import reduce
 from apl.arr import Array, issimple, disclose, coords, kcells, DataType, S
 
-def encase_vector(res: list, nested: bool, empty: bool=False) -> list:
+def encase_vector(source: Array, res: list, nested: bool, empty: bool=False) -> list:
     """
     Surround a vector with a frame.
     """
     rows = []
-    vtype = '∊' if nested else '~'
 
-    height = max(map(len, res))
-    data = []
-    for e in res:
-        padrows = []
-        if len(e) < height:
-            padrows = [' '*len(e[0]) for _ in range((height-len(e))//2)]
-        if isinstance(e, str):
-            data.append(padrows+[e]+padrows)
-        else:
-            data.append(padrows+e+padrows)
-    
-    for row in map(list, zip(*data)): # transpose
-        rows.append(list(reduce(lambda x, y:list(x)+[' ']+list(y), row))) # type: ignore
+    if not nested and source.type == DataType.CHAR:
+        rows = [source.data] # type: ignore
+        vtype = '─'
+    else:
+        vtype = '∊' if nested else '~'
+
+        height = max(map(len, res))
+        data = []
+        for e in res:
+            padrows = []
+            if len(e) < height:
+                padrows = [' '*len(e[0]) for _ in range((height-len(e))//2)]
+            if isinstance(e, str):
+                data.append(padrows+[e]+padrows)
+            else:
+                data.append(padrows+e+padrows)
+        
+        for row in map(list, zip(*data)): # transpose
+            rows.append(list(reduce(lambda x, y:list(x)+[' ']+list(y), row))) # type: ignore
 
     cols = max(map(len, rows))
     if empty:
@@ -55,17 +60,20 @@ def encase_enclosure(res: list) -> list:
 
     return encased
 
-def encase(shape: Sequence[int], res: list, *, nested: bool, empty: bool, wrap: bool=True) -> list:
+def encase(source: Array, res: list, *, nested: bool, empty: bool, wrap: bool=True) -> list:
     """
     Surround a character-array representation of an array with a frame.
     """
+    shape = source.shape
     if shape == []:
         return encase_enclosure(res)
 
     if len(shape) == 1:
-        return encase_vector(res, nested, empty)
-
-    vtype = '∊' if nested else '~'
+        return encase_vector(source, res, nested, empty)
+    if source.type == DataType.CHAR:
+        vtype = '─'
+    else:
+        vtype = '∊' if nested else '~'
 
     # Find the overall dimensions of the cells.
     heights = []  # The vertical size we need to centre each cell into, per row
@@ -133,7 +141,7 @@ def _format(a: Array, frame: bool=True) -> list:
     """
     if a.shape == []: # I am enclosed
         elem = disclose(a)
-        return encase([], _format(elem), nested=True, empty=elem.shape==[0], wrap=True)
+        return encase(a, _format(elem), nested=True, empty=elem.shape==[0], wrap=True)
 
     res = []
     nested = False
@@ -150,7 +158,7 @@ def _format(a: Array, frame: bool=True) -> list:
             nested = True
             res.append(box(cell))
 
-    return encase(a.shape, res, nested=nested, empty=empty, wrap=frame)
+    return encase(a, res, nested=nested, empty=empty, wrap=frame)
 
 def box(mat: Array) -> list:
     """
@@ -194,7 +202,10 @@ def box(mat: Array) -> list:
             else:
                 output.append(f"{'│'*(bars+1)}{row_str}{hpadd}│")
         output.append(divider)
-    output[-1] = "└"*bars+"└~"+'─'*(cols-1)+"┘"
+    if mat.type == DataType.CHAR:
+        output[-1] = "└"*bars+"└"+'─'*cols+"┘"
+    else:
+        output[-1] = "└"*bars+"└~"+'─'*(cols-1)+"┘"
 
     return output
 

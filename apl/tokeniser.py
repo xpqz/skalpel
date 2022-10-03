@@ -118,11 +118,14 @@ class Tokeniser:
             if hd == "'":  # character scalar or character vector
                 tokens.append(Token(TokenType.SINGLEQUOTE, "'"))
                 self.pos += 1
-                for ch in str(self.getname().tok):
-                    tokens.append(Token(TokenType.SCALAR, ch))
-                if self.chunk[self.pos] == "'":
-                    tokens.append(Token(TokenType.SINGLEQUOTE, "'"))
-                    self.pos += 1
+                try:
+                    while (ch := self.chunk[self.pos]) != "'":
+                        tokens.append(Token(TokenType.SCALAR, ch))
+                        self.pos += 1
+                except IndexError:
+                    raise SyntaxError("SYNTAX ERROR: Unpaired quote")
+                tokens.append(Token(TokenType.SINGLEQUOTE, "'"))
+                self.pos += 1
                 continue
 
             if hd == '¯' or hd.isdigit():  # numeric scalar
