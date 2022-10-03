@@ -111,6 +111,14 @@ class TestWithout:
         b = f.without(a, arr.V([2, 4]))
         assert arr.match(b, arr.V([1, 3, 5]))
 
+    def test_without_nested(self):
+        """
+        'ab' 'cd' 'ad'~⊂'ab'
+        """
+        a = arr.V([arr.V('ab'), arr.V('ac'), arr.V('ad')])
+        b = f.without(a, arr.enclose(arr.V('ab')))
+        assert arr.match(b, arr.V([arr.V('ac'), arr.V('ad')]))
+
 class TestWhere:
     def test_where_vector(self):
         a = arr.V([1, 0, 0, 1, 0, 1, 0])

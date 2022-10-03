@@ -162,6 +162,11 @@ class TestIndexing:
         result = run_code(src)
         assert match(result.payload, Aflat([2, 2], [1, 2, 9, 4]))
 
+    def test_nested_without(self):
+        src = "'ab' 'cd' 'ad'~⊂'cd'"
+        result = run_code(src)
+        assert str(result.payload) == "V(MIXED, NESTED, [<V(CHAR, FLAT, 'ab')>, <V(CHAR, FLAT, 'ad')>])"
+
 class TestSystemArrays:
     def test_zilde(self):
         src = "⍬"
@@ -175,6 +180,11 @@ class TestSystemArrays:
 
     def test_zilde3(self):
         src = '(2 3⍴⍬)≡2 3⍴0'
+        result = run_code(src)
+        assert match(result.payload, S(1))
+
+    def test_zilde4(self):
+        src = '(⍴⍬)≡,0'
         result = run_code(src)
         assert match(result.payload, S(1))
 

@@ -104,7 +104,6 @@ class Array:
 
         raise NYIError(f"NYI: unknown array type {self.type}")
 
-
     def get(self, coords: Sequence[int]) -> Any:
         """
         Get item at coords.

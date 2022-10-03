@@ -117,7 +117,7 @@ class Parser:
                 if node is None:
                     node = fun
                 else:
-                    if self.token().kind in SCALARS+[TokenType.RPAREN]:
+                    if self.token().kind in SCALARS+[TokenType.RPAREN, TokenType.SINGLEQUOTE]:
                         node = Node(NodeType.DYADIC, None, [fun, self.parse_vector(), node]) # Dyadic application of fun
                     else:
                         node = Node(NodeType.MONADIC, None, [fun, node])                    # Monadic application of fun

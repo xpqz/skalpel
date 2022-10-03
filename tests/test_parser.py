@@ -120,3 +120,7 @@ class TestCharVec:
     def test_gets(self):
         d = parse("a←'hello world'")
         assert d == "CHNK[GETS(ID('a'), VEC[SCALAR(h), SCALAR(e), SCALAR(l), SCALAR(l), SCALAR(o), SCALAR( ), SCALAR(w), SCALAR(o), SCALAR(r), SCALAR(l), SCALAR(d)])]"
+
+    def test_string_without(self):
+        d = parse("'abcd'~'bde'")
+        assert d == 'CHNK[DYADIC(FUN(~), VEC[SCALAR(a), SCALAR(b), SCALAR(c), SCALAR(d)], VEC[SCALAR(b), SCALAR(d), SCALAR(e)])]'

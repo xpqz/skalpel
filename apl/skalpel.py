@@ -638,6 +638,12 @@ def enlist(omega: arr.Array) -> arr.Array:
     inner(omega)
     return arr.Aflat([len(data)], data) 
 
+def ravel(omega: arr.Array) -> arr.Array:
+    """
+    Monadic , - create a vector of all major cells contained in omega
+    """
+    return arr.Array([omega.bound], omega.type, omega.array_type, omega.data)
+
 def member(alpha: arr.Array, omega: arr.Array) -> arr.Array:
     """
     Dyadic ∊ - which cells in alpha are found as a cell in omega?
@@ -648,15 +654,22 @@ def member(alpha: arr.Array, omega: arr.Array) -> arr.Array:
     V(UINT1, FLAT, [1, 1, 0])
     """
     result = []
-    for ac in arr.coords(alpha.shape):
-        cell_a = arr.disclose(alpha.get(ac))
-        found = 0
-        for oc in arr.coords(omega.shape):
-            cell_o = arr.disclose(omega.get(oc))
-            if arr.match(cell_a, cell_o):
-                found = 1
-                break
-        result.append(found)
+
+    if arr.isscalar(omega):
+        cell_b = arr.disclose(omega)
+        for ac in arr.coords(alpha.shape):
+            cell_a = arr.disclose(alpha.get(ac))
+            result.append(int(arr.match(cell_a, cell_b)))
+    else:
+        for ac in arr.coords(alpha.shape):
+            cell_a = arr.disclose(alpha.get(ac))
+            found = 0
+            for oc in arr.coords(omega.shape):
+                cell_o = arr.disclose(omega.get(oc))
+                if arr.match(cell_a, cell_o):
+                    found = 1
+                    break
+            result.append(found)
 
     return arr.Array(alpha.shape, arr.DataType.UINT1, arr.ArrayType.FLAT, bitarray(result))
                 
@@ -698,13 +711,6 @@ def replicate(alpha: arr.Array, omega: arr.Array) -> arr.Array:
     return arr.V(list(itertools.chain.from_iterable(itertools.repeat(arr.disclose(omega.data[i]), alpha.data[i]) for i in range(alpha.bound))))
     
 def without(alpha: arr.Array, omega: arr.Array) -> arr.Array:
-    if alpha.rank > 1 or omega.rank > 1:
-        raise RankError('RANK ERROR: dyadic ~ requires argument arrays to be max rank 1')
-
-    if alpha.array_type == omega.array_type == arr.ArrayType.FLAT:
-        return arr.V(list(set(alpha.data)-set(omega.data))) # recent pythons retain set ordering
-
-    # For nested vectors, we need to be slow, sadly -- Arrays aren't hashable
     mask = member(alpha, omega)
     mask.data = ~mask.data # type: ignore
     return replicate(mask, alpha)
@@ -828,6 +834,7 @@ class Voc:
         '∧': (None,                         and_lcm),
         '∊': (enlist,                       member),
         '⊂': (enclose,                      None), 
+        ',': (ravel,                        None),
         '⍉': (lambda y: transpose([], y),   lambda x, y: transpose(x.to_list(), y)),
         '⍴': (lambda y: rho(None, y),       rho),
         '⍳': (index_gen,                    None),
