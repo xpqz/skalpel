@@ -118,12 +118,17 @@ class Tokeniser:
             if hd == "'":  # character scalar or character vector
                 tokens.append(Token(TokenType.SINGLEQUOTE, "'"))
                 self.pos += 1
-                try:
-                    while (ch := self.chunk[self.pos]) != "'":
-                        tokens.append(Token(TokenType.SCALAR, ch))
+                while True:
+                    try:
+                        ch = self.chunk[self.pos]
+                    except IndexError:
+                        raise SyntaxError("SYNTAX ERROR: Unpaired quote")
+                    if ch == "'":
+                        if self.peek() != "'":
+                            break
                         self.pos += 1
-                except IndexError:
-                    raise SyntaxError("SYNTAX ERROR: Unpaired quote")
+                    tokens.append(Token(TokenType.SCALAR, ch)) 
+                    self.pos += 1
                 tokens.append(Token(TokenType.SINGLEQUOTE, "'"))
                 self.pos += 1
                 continue

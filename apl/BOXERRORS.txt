@@ -37,3 +37,12 @@ Should be:
 ↓ 0 ¯2│
 │¯1 ¯3│
 └~────┘
+
+This is a different bug, but still:
+
+skalpel> ''''
+┌→──────┐
+│┌⊖┐ ┌⊖┐│
+│││ │││
+│└─┘ └─┘│
+└∊──────┘

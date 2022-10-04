@@ -5,6 +5,7 @@ from enum import Enum
 import itertools
 import cmath, math
 import operator
+from string import ascii_letters
 from typing import Any, Callable, Optional, Sequence, TypeAlias
 
 from bitarray import bitarray
@@ -73,8 +74,8 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             env[arg].payload.mutate(idx.payload, val.payload) # type: ignore
 
         elif instr == INSTR.get:
-            if arg in Voc.arrs:
-                stack.push([Value(Voc.arrs[arg], TYPE.arr)])
+            if arg.upper() in Voc.arrs:
+                stack.push([Value(Voc.arrs[arg.upper()], TYPE.arr)])
             else:
                 if arg not in env:
                     raise ValueError(f'VALUE ERROR: Undefined name: "{arg}"')
@@ -832,6 +833,7 @@ class Voc:
     arrs: dict[str, arr.Array] = {
         '⍬': arr.Array.zilde(),
         '⎕IO': arr.S(0),
+        '⎕A': arr.Array([26], arr.DataType.CHAR, arr.ArrayType.FLAT, list(ascii_letters[26:])),
         '⎕D': arr.Array([10], arr.DataType.INT, arr.ArrayType.FLAT, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
     }
 

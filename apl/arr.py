@@ -277,8 +277,11 @@ def Aflat(shape: list[int], data: Sequence) -> Array:
     if any(isinstance(e, complex) for e in data):
         return Array.from_sequence(shape, DataType.CMPLX, ArrayType.FLAT, data)
 
-    if all(isinstance(e, str) for e in data):
+    if type(data) == str:
         return Array.from_sequence(shape, DataType.CHAR, ArrayType.FLAT, data)
+    
+    if all(isinstance(e, str) for e in data):
+        return Array.from_sequence(shape, DataType.CHAR, ArrayType.FLAT, ''.join(data))
 
     if all(isinstance(e, int) for e in data):
         max_val = max(data)

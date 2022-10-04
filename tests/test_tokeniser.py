@@ -151,3 +151,12 @@ class TestTokeniser:
         assert tokens[1].kind == TokenType.SINGLEQUOTE
         assert tokens[2].kind == TokenType.SCALAR
         assert tokens[3].kind == TokenType.SINGLEQUOTE
+
+    def test_escaped_quote(self):
+        src = "''''"
+        tokeniser = Tokeniser(src)
+        tokens = tokeniser.lex()
+        assert tokens[0].kind == TokenType.EOF
+        assert tokens[1].kind == TokenType.SINGLEQUOTE
+        assert tokens[2].kind == TokenType.SCALAR
+        assert tokens[3].kind == TokenType.SINGLEQUOTE

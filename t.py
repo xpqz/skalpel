@@ -13,8 +13,15 @@ from apl.parser import Parser
 from apl.skalpel import run, Value
 from apl.stack import Stack
 
+class TestFailure(Exception):
+    pass
+
 EXCEPTIONS = {
     'RANK ERROR': RankError,
+}
+
+SKIP = { 
+    '⍟', '∞', '⍶', '⍹', '⍫', '»'
 }
 
 def eval_apl(src: str) -> Array:
@@ -69,11 +76,18 @@ def main() -> None:
     failed = []
     succeeded = []
     for t in tests:
-        if '∞' in t: # ngn/apl has a few custom glyphs; skip for now
-            continue
+        skip = False
+        for glyph in SKIP:
+            if glyph in t: # ngn/apl has a few custom glyphs; skip for now
+                skip = True
+                break
+        if skip:
+            continue    
         if " ←→ " in t:
             data = t.split(" ←→ ")
             if not compare(data[0], data[1]):
+                # raise TestFailure(t)
+                print(t)
                 failed.append(t)
             else:
                 succeeded.append(t)
