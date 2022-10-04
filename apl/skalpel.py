@@ -26,7 +26,8 @@ class INSTR(Enum):
     mon=7      # monadic call
     dya=8      # dyadic call
     vec=9      # vector
-    dfn=10     # define dfn
+    cvec=10    # character vector (needed to ensure that empty '' gets the right type)
+    dfn=11     # define dfn
 
 class TYPE(Enum):
     arr=0
@@ -170,6 +171,13 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
 
         elif instr == INSTR.vec:
             stack.push([Value(arr.V([e.payload for e in stack.pop(arg)]), TYPE.arr)])
+
+        elif instr == INSTR.cvec:
+            data = [e.payload for e in stack.pop(arg)]
+            if data:
+                stack.push([Value(arr.V(data), TYPE.arr)])
+            else:
+                stack.push([Value(arr.emptycv(), TYPE.arr)])
 
 def mpervade(f: Callable, direct: bool=False) -> Callable:
     """

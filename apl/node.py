@@ -18,6 +18,7 @@ class NodeType(Enum):
     DYADIC = auto()
     MONADIC = auto()
     VECTOR = auto()
+    CHARVEC = auto()
     SCALAR = auto()
     SYSTEM = auto()
     CHUNK = auto()
@@ -227,11 +228,12 @@ class Node:
             Node.code.append((INSTR.set, receiver._mttok()))
 
     def emit_vector(self) -> None:
-        if not self.children:                     # NOTE we need to handle ⍬ somehow
-            raise EmitError('EMIT ERROR: node has no children')
-        for el in self.children:
+        for el in self.children: # type: ignore
             el.emit()
-        Node.code.append((INSTR.vec, len(self.children)))
+        if self.kind == NodeType.CHARVEC:
+            Node.code.append((INSTR.cvec, len(self.children)))  # type: ignore
+        else:            
+            Node.code.append((INSTR.vec, len(self.children)))  # type: ignore
 
     def emit_chunk(self) -> list:
         if not self.children:
@@ -256,7 +258,7 @@ class Node:
             self.emit_monadic_call()
         elif self.kind == NodeType.SCALAR:
             self.emit_scalar()
-        elif self.kind == NodeType.VECTOR:
+        elif self.kind in {NodeType.VECTOR, NodeType.CHARVEC}:
             self.emit_vector()
         elif self.kind == NodeType.IDX:
             self.emit_idx()
@@ -290,10 +292,12 @@ class Node:
             return f"MOP('{self.main_token.tok}', {self.children[0]})"
         if self.kind == NodeType.IDX:
             return f"IDX({self.children[0]}, {self.children[1]})"
-        if self.kind == NodeType.VECTOR:
+        if self.kind in {NodeType.VECTOR, NodeType.CHARVEC}:
             body = []
             for sc in self.children:
                 body.append(str(sc))
+            if self.kind == NodeType.CHARVEC:
+                return f"CVEC[{', '.join(body)}]"
             return f"VEC[{', '.join(body)}]"
         if self.kind == NodeType.CHUNK:
             body = []

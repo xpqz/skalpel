@@ -66,8 +66,10 @@ class Array:
 
         if isinstance(self.data, (bitarray, bytearray)):
             data = [int(i) for i in self.data]  # Harmonise presentation of all non-list array providers
-        elif self.array_type == ArrayType.FLAT and isinstance(self.data[0], str):
-            data = f"'{''.join(self.data)}'"    # Join up list-of-char
+        elif self.array_type == ArrayType.FLAT and isinstance(disclose(self.data[0]).data[0], str):
+            data = ''
+            for s in self.data:
+                data += disclose(s).data[0]
         else:
             data = self.data
 
@@ -495,6 +497,9 @@ def index_cell(arr: Array, ind: Sequence[int]) -> Array:
     
 def zilde() -> Array:
     return Array([0], DataType.UINT1, ArrayType.FLAT, [])
+
+def emptycv() -> Array:
+    return Array([0], DataType.CHAR, ArrayType.FLAT, [])
 
 def match(alpha: Array, omega: Array) -> bool:
     if not isnested(alpha) and not isnested(omega) and alpha.shape == omega.shape:

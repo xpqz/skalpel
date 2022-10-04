@@ -119,8 +119,15 @@ class TestCharVec:
 
     def test_gets(self):
         d = parse("a←'hello world'")
-        assert d == "CHNK[GETS(ID('a'), VEC[SCALAR(h), SCALAR(e), SCALAR(l), SCALAR(l), SCALAR(o), SCALAR( ), SCALAR(w), SCALAR(o), SCALAR(r), SCALAR(l), SCALAR(d)])]"
+        assert d == "CHNK[GETS(ID('a'), CVEC[SCALAR(h), SCALAR(e), SCALAR(l), SCALAR(l), SCALAR(o), SCALAR( ), SCALAR(w), SCALAR(o), SCALAR(r), SCALAR(l), SCALAR(d)])]"
 
     def test_string_without(self):
         d = parse("'abcd'~'bde'")
-        assert d == 'CHNK[DYADIC(FUN(~), VEC[SCALAR(a), SCALAR(b), SCALAR(c), SCALAR(d)], VEC[SCALAR(b), SCALAR(d), SCALAR(e)])]'
+        assert d == 'CHNK[DYADIC(FUN(~), CVEC[SCALAR(a), SCALAR(b), SCALAR(c), SCALAR(d)], CVEC[SCALAR(b), SCALAR(d), SCALAR(e)])]'
+
+    def test_empty_string(self):
+        """
+        '' should parse as a vector, not a scalar
+        """
+        d = parse("''")
+        assert d == 'CHNK[CVEC[]]'

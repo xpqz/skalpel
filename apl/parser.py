@@ -189,16 +189,18 @@ class Parser:
             chvec.append(Node(NodeType.SCALAR, self.eat_token()))
         self.expect_token(TokenType.SINGLEQUOTE)
         data = list(reversed(chvec))
+
         if len(data) == 1:
             return chvec[0]
-        return Node(NodeType.VECTOR, None, list(reversed(chvec)))
+
+        return Node(NodeType.CHARVEC, None, list(reversed(chvec)))
 
     def parse_vector(self) -> Node:
         nodes = []
         idx = None
         while (kind := self.token().kind) in SCALARS + [TokenType.RPAREN, TokenType.RBRACKET, TokenType.SINGLEQUOTE]:
             if kind == TokenType.RPAREN:
-                if self.peek_beyond([TokenType.RPAREN]).kind in SCALARS:
+                if self.peek_beyond([TokenType.RPAREN]).kind in SCALARS + [TokenType.SINGLEQUOTE]:
                     self.expect_token(TokenType.RPAREN)
                     nodes.append(self.parse_statement())
                     self.expect_token(TokenType.LPAREN)
