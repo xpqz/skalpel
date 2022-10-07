@@ -118,7 +118,7 @@ class Array:
         Return a list of unwrapped scalars.
         """
         if self.array_type == ArrayType.FLAT:
-            if self.type in (DataType.UINT1, DataType.UINT8):
+            if self.type in {DataType.UINT1, DataType.UINT8}:
                 return [int(i) for i in self.data]
             return list(self.data)
 
@@ -370,8 +370,8 @@ def disclose(arr: Any) -> Array:
     return S(arr) # make an array-y scalar from an actual scalar
         
 def kcells(arr: Array, k: int) -> Iterator[Array]:
-    if k == 0:
-        yield arr
+    # if k == 0:
+    #     yield arr
 
     if k > arr.rank:
         raise RankError("RANK ERROR")
