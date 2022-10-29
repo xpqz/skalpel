@@ -216,6 +216,16 @@ class TestIndexing:
         result = run_code(src)
         assert arr.match(result.payload, arr.V([arr.V("ab"), arr.V("ad")]))
 
+    def test_index_literal_vector(self):
+        src = "1 2 3[1]"
+        result = run_code(src)
+        assert arr.match(result.payload, arr.S(2))
+
+    def test_empty_index_vector(self):
+        src = "1 2 3[⍬]"
+        result = run_code(src)
+        assert arr.match(result.payload, arr.Array([0], []))
+
 class TestSystemArrays:
     def test_zilde(self):
         src = "⍬"

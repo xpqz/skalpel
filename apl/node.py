@@ -109,6 +109,7 @@ class Node:
         if receiver.kind in {NodeType.ARG, NodeType.ID}:
             Node.code.append((INSTR.geti, receiver.main_token.tok)) # type: ignore
         elif receiver.kind == NodeType.VECTOR:
+            receiver.emit_vector()
             Node.code.append((INSTR.geti, None))
         else:
             raise EmitError(f"EMIT ERROR: unexpected node {receiver.kind}")

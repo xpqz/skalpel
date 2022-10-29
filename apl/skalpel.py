@@ -78,7 +78,7 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
 
         elif instr == INSTR.geti:
             if not arg: # index into literal vector
-                (val, idx) = stack.pop(2)
+                (idx, val) = stack.pop(2)
                 if val.kind != TYPE.arr:
                     raise RankError
                 stack.push([Value(val.payload.at(idx.payload), TYPE.arr)]) # type: ignore
@@ -383,7 +383,7 @@ def ravel(omega: arr.Array) -> arr.Array:
     return arr.V(omega.data)
                 
 def tally(omega: arr.Array) -> arr.Array:
-    return arr.S(len(omega.data))
+    return arr.S(len(list(omega.major_cells())))
 
 def enclose(omega: arr.Array) -> arr.Array:
     if omega.issimple():
@@ -524,21 +524,23 @@ class Voc:
     }
 
     funs: dict[str, Signature] = {
-        #--- Monadic-----------------------Dyadic----------------
+        #--- Monadic-------------------------Dyadic---------------------------
+        '↑': (lambda o: o.mix(),             lambda a, o: o.take(a)),
+        '↓': (lambda o: o.split(),           None),
         '~': (bool_not,                      lambda a, o: a.without(o)),
         '∨': (None,                          or_gcd),
         '∧': (None,                          and_lcm),
         '∊': (lambda o: o.enlist(),          lambda a, o: o.contains(a)),
         '⊂': (enclose,                       None), 
         ',': (ravel,                         None),
-        '⍉': (lambda o: o.transpose(),      lambda a, o: o.transpose(a.as_list())),
+        '⍉': (lambda o: o.transpose(),       lambda a, o: o.transpose(a.as_list())),
         '⍴': (lambda o: rho(None, o),        rho),
         '⍳': (lambda o: o.index_gen(),       None),
         '⍸': (lambda o: o.where(),           None),
         '≢': (tally,                         lambda x, y: arr.S(int(not arr.match(x, y)))),
         '≡': (None,                          lambda x, y: arr.S(int(arr.match(x, y)))),
-        '⌈': (None,                          pervade(max)),
-        '⌊': (None,                          pervade(min)),
+        '⌈': (mpervade(math.ceil),           pervade(max)),
+        '⌊': (mpervade(math.floor),          pervade(min)),
         '!': (mpervade(math.factorial),      None),
         '○': (mpervade(lambda o: o*math.pi), pervade(circle)),
         '+': (None,                          pervade(operator.add)),
