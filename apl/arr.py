@@ -45,6 +45,8 @@ class Array:
         return self.shape == [] and len(self.data) == 1 and not isinstance(self.data[0], Array)
 
     def unbox(self) -> 'Array':
+        if self.issimple():
+            return self
         if not self.shape and self.bound == 1:
             return self.data[0]
         raise RankError
@@ -320,7 +322,7 @@ class Array:
 
         if not len(self.shape) or not math.prod(self.shape) or (self.rank == 1 and not self.nested): return self
         shape = self.shape[:]
-        shapes = [e.shape[:] for e in self.data]
+        shapes = [enclose_if_simple(e).shape[:] for e in self.data]
         r = max(len(s) for s in shapes)
         shapes = [f(r, s) for s in shapes]
         smax = list(max(*shapes))

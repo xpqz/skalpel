@@ -311,6 +311,19 @@ class TestMix:
         mixed = strs.mix()
         assert arr.match(mixed, expected)
 
+    def test_mix_nested_contains_scalar(self):
+        """
+        ↑(1 2)3
+        ┌→──┐
+        ↓1 2│
+        │3 0│
+        └~──┘
+        """
+        v = arr.V([arr.V([1, 2]), 3])
+        expected = arr.Array([2, 2], [1, 2, 3, 0])
+        mixed = v.mix()
+        assert arr.match(mixed, expected)
+
 class TestSplit:
     def test_split_arr(self):
         a = arr.Array([3, 3], list('abcdefghi'))
