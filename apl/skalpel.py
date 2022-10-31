@@ -1,14 +1,9 @@
-from collections import defaultdict
-from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
-import itertools
 import cmath, math
 import operator
 from string import ascii_letters
-from typing import Any, Callable, Optional, Sequence, TypeAlias
-
-from bitarray import bitarray
+from typing import Any, Callable, Optional, TypeAlias
 
 import apl.arr as arr
 from apl.errors import ArityError, DomainError, LengthError, NYIError, RankError
@@ -36,7 +31,7 @@ class TYPE(Enum):
     dfn=2
 
 class Value:
-    def __init__(self, payload: arr.Array|str|list[tuple], kind:TYPE) -> None:
+    def __init__(self, payload: arr.Array|str|list[tuple]|int|float|complex, kind:TYPE) -> None:
         self.payload = payload
         self.kind = kind
 
@@ -60,7 +55,7 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             stack.push([Value(arr.S(arg), TYPE.arr)])
 
         elif instr == INSTR.fun:
-                stack.push([Value(arg, TYPE.fun)])
+            stack.push([Value(arg, TYPE.fun)])
 
         elif instr == INSTR.set:
             env[arg] = stack.pop()[0]
@@ -83,7 +78,7 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
 
         elif instr == INSTR.geti:
             if not arg: # index into literal vector
-                (val, idx) = stack.pop(2)
+                (idx, val) = stack.pop(2)
                 if val.kind != TYPE.arr:
                     raise RankError
                 stack.push([Value(val.payload.at(idx.payload), TYPE.arr)]) # type: ignore
@@ -143,16 +138,19 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             if arg is None: # In-line dfn
                 dfn = stack.pop()[0]
                 assert dfn is not None and dfn.kind == TYPE.dfn
-                run(dfn.payload, {'⍵': stack.pop()[0]}, 0, stack) # type: ignore
+                omega = stack.pop()[0].payload
+                run(dfn.payload, {'⍵': omega}, 0, stack) # type: ignore
                 continue
  
             if Voc.has_builtin(arg): # Built-in function
                 fn = Voc.get_fn(arg, Arity.MONAD)
-                stack.push([Value(fn(stack.pop()[0].payload), TYPE.arr)])
+                omega = stack.pop()[0].payload
+                stack.push([Value(fn(omega), TYPE.arr)])
                 continue
             
             if arg in env: # Dfn-by-name
                 assert env[arg].kind == TYPE.dfn
+                omega = stack.pop()[0].payload
                 run(env[arg].payload, {'⍵': omega}, 0, stack) # type: ignore
                 continue
             
@@ -164,9 +162,9 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
                     (alfalfa, omomega) = (stack.pop()[0].payload, stack.pop()[0].payload) # Note: order
                 else:
                     alfalfa = stack.pop()[0].payload
-                omega = stack.pop()[0]
+                omega = stack.pop()[0].payload
                 fn = derive(op.f, alfalfa, omomega, Arity.MONAD)
-                stack.push([Value(fn(omega.payload, env, stack), TYPE.arr)])
+                stack.push([Value(fn(omega, env, stack), TYPE.arr)])
             else:
                 raise ValueError(f'VALUE ERROR: unknown name {arg}')
 
@@ -178,7 +176,7 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             if data:
                 stack.push([Value(arr.V(data), TYPE.arr)])
             else:
-                stack.push([Value(arr.emptycv(), TYPE.arr)])
+                stack.push([Value(arr.Array([0], [' ']), TYPE.arr)])
 
 def mpervade(f: Callable, direct: bool=False) -> Callable:
     """
@@ -197,11 +195,9 @@ def mpervade(f: Callable, direct: bool=False) -> Callable:
         Case 0: +2           
         Case 1: +1 ¯2 0
         """
-        if omega.array_type == arr.ArrayType.FLAT:
-            if direct and omega.type == arr.DataType.UINT1: # Optimise for boolean arrays if we can
-                return arr.Array(omega.shape, arr.DataType.UINT1, arr.ArrayType.FLAT, f(omega.data))
-            return arr.Aflat(omega.shape, list(map(f, omega.data))) 
-        return arr.A(omega.shape, [pervaded(arr.disclose(x)) for x in omega.data]) # type: ignore
+        if not omega.nested:
+            return arr.Array(omega.shape, list(map(f, omega.data))) 
+        return arr.Array(omega.shape, [pervaded(arr.disclose(x)) for x in omega.data]) # type: ignore
 
     return pervaded
 
@@ -235,36 +231,34 @@ def pervade(f: Callable, direct: bool=False) -> Callable:
         elif not isinstance(omega, arr.Array):
             return pervaded(alpha, arr.S(omega))
 
-        if alpha.array_type == arr.ArrayType.FLAT and omega.array_type == arr.ArrayType.FLAT:
+        if not alpha.nested and not omega.nested:
             if alpha.shape == omega.shape:
-                if direct and alpha.type == arr.DataType.UINT1 and omega.type == arr.DataType.UINT1: # be fast if we can
-                    return arr.Array(alpha.shape, arr.DataType.UINT1, arr.ArrayType.FLAT, f(alpha.data, omega.data))
-                return arr.Aflat(alpha.shape, [f(alpha.data[i], omega.data[i]) for i in range(alpha.bound)])
-            if alpha.shape == []:
-                return arr.Aflat(omega.shape, [f(alpha.data[0], omega.data[i]) for i in range(omega.bound)])
+                return arr.Array(alpha.shape, [f(alpha.data[i], omega.data[i]) for i in range(alpha.bound)])
+            if not alpha.shape:
+                return arr.Array(omega.shape, [f(alpha.data[0], omega.data[i]) for i in range(omega.bound)])
             if omega.shape == []:
-                return arr.Aflat(alpha.shape, [f(alpha.data[i], omega.data[0]) for i in range(alpha.bound)])
-            if alpha.rank == 1 and omega.rank == 1:       # Case 4a: unequal lengths
+                return arr.Array(alpha.shape, [f(alpha.data[i], omega.data[0]) for i in range(alpha.bound)])
+            if alpha.rank == omega.rank == 1:   # Case 4a: unequal lengths
                raise LengthError("LENGTH ERROR: Mismatched left and right argument shapes")    
-            raise RankError("RANK ERROR")                 # Case 4b: unequal shapes; rank error
+            raise RankError("RANK ERROR")                       # Case 4b: unequal shapes; rank error
 
         # At least one of the arrays is nested.
-        if alpha.shape == omega.shape:                # Case 3: equal shapes
+        if alpha.shape == omega.shape:                          # Case 3: equal shapes
             data = [
-                pervaded(arr.disclose(alpha.data[x]), arr.disclose(omega.data[x])) 
+                pervaded(alpha.data[x], omega.data[x])
                 for x in range(alpha.bound)
-            ] # type: ignore
-            return arr.A(alpha.shape, data)
+            ]
+            return arr.Array(alpha.shape, data)
 
-        if arr.issimple(alpha):                           # Case 1: left is scalar
-            return arr.A(omega.shape, [pervaded(alpha, arr.disclose(e)) for e in omega.data]) # type: ignore
+        if alpha.issimple():                                    # Case 1: left is scalar
+            return arr.Array(omega.shape, [pervaded(alpha, e) for e in omega.data])
 
-        if arr.issimple(omega):                           # Case 2: right is scalar
-            return arr.A(omega.shape, [pervaded(arr.disclose(e), omega) for e in alpha.data]) # type: ignore
+        if omega.issimple():                                    # Case 2: right is scalar
+            return arr.Array(omega.shape, [pervaded(e, omega) for e in alpha.data])
 
-        if alpha.rank == 1 and omega.rank == 1:       # Case 4a: unequal lengths
+        if alpha.rank == omega.rank == 1:                       # Case 4a: unequal lengths
             raise LengthError("LENGTH ERROR: Mismatched left and right argument shapes")    
-        raise RankError("RANK ERROR")                 # Case 4b: unequal shapes; rank error
+        raise RankError("RANK ERROR")                           # Case 4b: unequal shapes; rank error
 
     return pervaded
 
@@ -311,134 +305,9 @@ def over(left: str|list[tuple], right: Optional[str|list[tuple]], alpha: arr.Arr
     
     return fn(pp(alpha), pp(omega))
 
-def _reorder_axes(spec:Sequence[int], coords:Sequence[int]) -> list[int]:
-    """
-    Given an axis reorder spec as given by the left arg to dyadic transpose,
-    transform a coordinate vector to the new basis. This is at the root of
-    what makes dyadic transpose hard to grasp. The spec is NOT the new shape,
-    it's the *grade vector*.
-    """
-    uniques = len(set(spec))
-    pairs = zip(spec, coords)
-    if len(spec) == uniques: # No repeated axes
-        return [i[-1] for i in sorted(pairs)]
-    
-    # We have repeated axes, meaning that the rank will be the number of
-    # unique axes in the spec list.
-    transformed = [-1]*uniques
-
-    # Replace any pairs where the first index is the same with min
-    for i, c in pairs:
-        if transformed[i] == -1:
-            transformed[i] = c
-        else:
-            transformed[i] = min(transformed[i], c)
-
-    return transformed
-
-def _repeated(spec: Sequence[int]) -> dict[int,list[int]]:
-    """
-    Return a dictionary where the keys are the unique axis indices 
-    of axes that are repeated, and the values are lists of the 
-    corresponding locations.
-
-    >>> _repeated([0, 1, 0])
-    {0: [0, 2]}
-
-    >>> _repeated([0, 1, 2])
-    {}
-
-    >>> _repeated([0, 1, 0, 1])
-    {0: [0, 2], 1: [1, 3]}
-
-    >>> _repeated([])
-    {}
-    """
-    unique = defaultdict(list)
-    for idx, elem in enumerate(spec):
-        unique[elem].append(idx)
-
-    # Only keep entries for the repeated axes
-    return {k: v for k, v in unique.items() if len(v) > 1}
-
-def _skip(rax: dict[int, list[int]], coord: Sequence[int]) -> bool:
-    """
-    Given a dictionary showing the locations of repeated axes, 
-    show if the given coordinate vector should be skipped, i.e
-    it must have equality where axes are repeated.
-
-    >>> _skip({0:[0, 2]}, [1, 0, 1]) # No skipping; axes 0 and 2 are equal
-    False
-
-    >>> _skip({0:[0, 2]}, [1, 9, 1]) # No skipping; axes 0 and 2 are equal
-    False
-
-    >>> _skip({0:[0, 2]}, [1, 2, 3]) # Skipping; axes 0 and 2 are not equal
-    True
-    """
-    for i in range(len(coord)):
-        for m in rax.get(i, []):
-            if coord[m] != coord[i]:
-                return True
-    return False
-
-def transpose(alpha: Sequence[int], omega: arr.Array) -> arr.Array:
-    """
-    Monadic and dyadic transpose. Dyadic transpose is a generalisation of
-    the monadic case, which reverses the axes. In the dyadic case, axes can
-    be in any order. 
-    
-    The general dyadic transpose: reorder axes
-
-    APL> ,2 0 1⍉2 3 4⍴⍳×/2 3 4
-    ┌→────────────────────────────────────────────────────────────┐
-    │0 12 1 13 2 14 3 15 4 16 5 17 6 18 7 19 8 20 9 21 10 22 11 23│
-    └~────────────────────────────────────────────────────────────┘
-
-    >>> a = arr.Aflat([2, 3, 4], list(range(2*3*4)))
-    >>> transpose([2, 0, 1], a)
-    A([3, 4, 2], UINT8, FLAT, [0, 12, 1, 13, 2, 14, 3, 15, 4, 16, 5, 17, 6, 18, 7, 19, 8, 20, 9, 21, 10, 22, 11, 23])
-
-    Complication: repeated axes in the dyadic case:
-
-    APL> 0 0⍉3 3⍴⍳9 ⍝ Dyadic transpose with repeated axes gets the diagonal
-    ┌→────┐
-    │0 4 8│
-    └~────┘
-
-    >>> a = arr.Aflat([3, 3], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-    >>> transpose([0, 0], a)
-    V(UINT8, FLAT, [0, 4, 8])
-    """
-    if omega.rank < 2: # For scalars and vectors: identity
-        return deepcopy(omega)   # NOTE: need to clone here, wtf Guido
-
-    # For the monadic transpose: transformation is the reverse axis ordering
-    repeated_axes = {}
-    if not alpha:
-        alpha = list(range(omega.rank-1, -1, -1))
-    else: # Check for repeated axes in the axis reordering spec
-        repeated_axes = _repeated(alpha)
-
-    new_shape = _reorder_axes(alpha, omega.shape)
-    newdata = [0]*math.prod(new_shape)
-    for idx, cvec in enumerate(arr.coords(omega.shape)):
-        if repeated_axes and _skip(repeated_axes, cvec):
-            continue
-        newdata[arr.decode(new_shape, _reorder_axes(alpha, cvec))] = omega.data[idx]
-
-    # Check if we can make this flat.
-    for e in newdata:
-        if isinstance(e, arr.Array):
-            return arr.A(new_shape, deepcopy(newdata))
-    
-    return arr.Aflat(new_shape, deepcopy(newdata)) # Possibly won't need deepcopy() here.
-
 def each(left: str|list[tuple], right: Optional[str], alpha: Optional[Any],  omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
     Each ¨ - monadic operator deriving monad
-
-    TODO: squeeze the result array
     """
     if right is not None:
         raise ArityError("'¨' takes no right operand")
@@ -448,14 +317,15 @@ def each(left: str|list[tuple], right: Optional[str], alpha: Optional[Any],  ome
 
     fun = _make_operand(left, Arity.MONAD, env, stack)
 
-    return arr.A(omega.shape, [fun(arr.disclose(o)) for o in omega.data])
+    d = [fun(o) for o in omega.data] # apply left operand to each element
+    if all(a.issimple() for a in d): # can we squeeze out any unnecessary nesting?
+        return arr.Array(omega.shape, [e.data[0] for e in d])
+
+    return arr.Array(omega.shape, d)
 
 def reduce(left: str|list[tuple], right: Optional[Any], alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
     Outward-facing '/' (trailling axis reduce)
-
-    >>> reduce('+', None, None, arr.Aflat([2, 2], [1, 2, 3, 4]))
-    V(UINT8, FLAT, [3, 7])
     """
     if right is not None:
         raise ArityError("'/' takes no right operand")
@@ -463,36 +333,13 @@ def reduce(left: str|list[tuple], right: Optional[Any], alpha: Optional[arr.Arra
     if alpha is not None:
         raise NYIError("left argument for function derived by '/' is not implemented yet")
 
-    # Local optimisations go here.
-    if omega.array_type == arr.ArrayType.FLAT:
-        # Dirty hacks for flat vectors
-        if omega.rank == 1:
-            if left == '+':
-                if omega.type == arr.DataType.UINT1:
-                    return arr.S(omega.data.count()) # type: ignore
-                return arr.S(sum(omega.data))
-            if left == '×':
-                return arr.S(math.prod(omega.data))
-
-        # Dirty hacks for flat matrices
-        if omega.rank == 2:
-            if left == '+':
-                if omega.type == arr.DataType.UINT1:
-                    return arr.V([row.count() for row in arr.rows_flat_matrix(omega)])
-                return arr.V([sum(row) for row in arr.rows_flat_matrix(omega)])
-            if left == '×':
-                return arr.V([math.prod(row) for row in arr.rows_flat_matrix(omega)])
-
     fun = _make_operand(left, Arity.DYAD, env, stack)
 
-    return _reduce(operand=fun, axis=omega.rank-1, omega=omega)
+    return omega.foldr(operand=fun, axis=omega.rank-1)
 
 def reduce_first(left: str|list[tuple], right: Optional[Any], alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
     Outward-facing '⌿' (leading axis reduce)
-
-    >>> reduce_first('+', None, None, arr.Aflat([2, 2], [1, 2, 3, 4]))
-    V(UINT8, FLAT, [4, 6])
     """
     if right is not None:
         raise ArityError("'/' takes no right operand")
@@ -500,100 +347,10 @@ def reduce_first(left: str|list[tuple], right: Optional[Any], alpha: Optional[ar
     if alpha is not None:
         raise NYIError("left argument for function derived by '/' is not implemented yet")
 
-    # Local optimisations go here.
-    if omega.array_type == arr.ArrayType.FLAT:
-        if omega.rank == 1:
-            if left == '+':
-                if omega.type == arr.DataType.UINT1:
-                    return arr.S(omega.data.count()) # type: ignore
-                return arr.S(sum(omega.data))
-            if left == '×':
-                return arr.S(math.prod(omega.data))
-
     fun = _make_operand(left, Arity.DYAD, env, stack)
 
-    return _reduce(operand=fun, axis=0, omega=omega)
+    return omega.foldr(operand=fun, axis=0)
 
-def _reduce(*, operand: Callable, axis: int, omega: arr.Array) -> arr.Array:
-    """
-    [private]
-
-    Reduction along axis. 
-    
-    Originally by @ngn: 
-       * https://chat.stackexchange.com/transcript/message/47158587#47158587
-       * https://pastebin.com/mcPAxtqx
-
-    Also used in dzaima/apl:
-       * https://github.com/dzaima/APL/blob/master/src/APL/types/functions/builtins/mops/ReduceBuiltin.java#L156-L178
-
-    >>> _reduce(operand=lambda x, y:x+y, axis=0, omega=arr.Aflat([2, 2], [1, 2, 3, 4]))
-    V(UINT8, FLAT, [4, 6])
-
-    >>> _reduce(operand=lambda x, y:x+y, axis=1, omega=arr.Aflat([2, 2], [1, 2, 3, 4]))
-    V(UINT8, FLAT, [3, 7])
-    """
-    if omega.rank == 0:
-        return omega
-    if axis < 0:
-        axis += omega.rank
-
-    if axis >= omega.rank:
-        raise RankError
-
-    n0 = math.prod(omega.shape[:axis])             # prouct of dims before axis
-    n1 = omega.shape[axis]                    # reduction axis size
-    n2 = math.prod(omega.shape[axis+1:omega.rank]) # math.product of dims after axis
-
-    shape = omega.shape[:]; del shape[axis]   # new shape is old shape with the reducing axis removed
-    ravel = [0 for _ in range(n0*n2)]
-
-    for i in range(n0):
-        for k in range(n2):
-            acc = omega.data[i*n1*n2 + (n1-1)*n2 + k]
-            for j in range(n1-2, -1, -1):     # R-L
-                acc = operand(omega.data[i*n1*n2 + j*n2 + k], acc)
-            ravel[i*n2 + k] = acc # type: ignore
-
-   # Check if we can make this flat. TODO: this is too generic
-    for e in ravel:
-        if isinstance(e, arr.Array):
-            return arr.A(shape, ravel)
-    
-    return arr.Aflat(shape, ravel)
-
-def index_gen(omega: arr.Array, IO: int=0) -> arr.Array:
-    """
-    ⍳ - index generator (monadic)
-
-    >>> index_gen(arr.S(5))      # Scalar omega
-    V(UINT8, FLAT, [0, 1, 2, 3, 4])
-
-    >>> index_gen(arr.V([2, 2])) # Vector omega
-    A([2, 2], MIXED, NESTED, [<V(UINT1, FLAT, [0, 0])>, <V(UINT1, FLAT, [0, 1])>, <V(UINT1, FLAT, [1, 0])>, <V(UINT1, FLAT, [1, 1])>])
-     """
-    if arr.issimple(omega):
-        if not isinstance(omega.data[0], int):
-            raise DomainError('DOMAIN ERROR: right arg must be integer')
-        return arr.Aflat([omega.data[0]], range(IO, omega.data[0]))
-
-    if omega.rank > 1:
-        raise RankError('RANK ERROR: rank of right arg must be 0 or 1')
-
-    shape = omega.to_list()
-    return arr.A(shape, [arr.Aflat([len(c)], c) for c in arr.coords(shape, IO)])
-
-def where(omega: arr.Array) -> arr.Array:
-    if omega.type != arr.DataType.UINT1: # for now
-        raise DomainError('DOMAIN ERROR: expected Boolean array')
-
-    if omega.rank == 1:
-        return arr.Aflat([omega.data.count()], omega.data.search(bitarray([True]))) # type: ignore
-
-    return arr.V([
-        arr.Array([omega.rank], arr.DataType.INT, arr.ArrayType.FLAT, arr.encode(omega.shape, idx)) # type: ignore
-        for idx in omega.data.search(bitarray([True])) # type: ignore
-    ])
 
 def rho(alpha: Optional[arr.Array], omega: arr.Array) -> arr.Array:
     """
@@ -605,124 +362,53 @@ def rho(alpha: Optional[arr.Array], omega: arr.Array) -> arr.Array:
     APL> ,5 5⍴3 3⍴3 2 0 8 6 5 4 7 1
     3 2 0 8 6 5 4 7 1 3 2 0 8 6 5 4 7 1 3 2 0 8 6 5 4
 
-    >>> rho(arr.V([5, 5]), arr.Aflat([3, 3], [3, 2, 0, 8, 6, 5, 4, 7, 1]))
+    >>> rho(arr.V([5, 5]), arr.Array([3, 3], [3, 2, 0, 8, 6, 5, 4, 7, 1]))
     A([5, 5], UINT8, FLAT, [3, 2, 0, 8, 6, 5, 4, 7, 1, 3, 2, 0, 8, 6, 5, 4, 7, 1, 3, 2, 0, 8, 6, 5, 4])
 
     >>> rho(arr.V([2, 2]), arr.S(5))
     A([2, 2], UINT8, FLAT, [5, 5, 5, 5])
 
-    >>> rho(None, arr.Aflat([2, 2], [1, 2, 3, 4]))
+    >>> rho(None, arr.Array([2, 2], [1, 2, 3, 4]))
     V(UINT8, FLAT, [2, 2])
     """
     if alpha is None: # Monadic
-        return arr.Aflat([len(omega.shape)], omega.shape)
+        return arr.V(omega.shape)
 
-    data = omega.data
-    if omega.bound == 0:
-        # ⍴ coerces the prototype if there is no data
-        # https://chat.stackexchange.com/transcript/message/62125233#62125233
-        data = [omega.prototypal_element()]
-
-    if not arr.isnested(omega):
-        return arr.Aflat(alpha.to_list(), data) # type: ignore
-
-    return arr.A(alpha.to_list(), data) # type: ignore
-
-def enlist(omega: arr.Array) -> arr.Array:
-    """
-    Monadic ∊ - create a vector of all simple scalars contained in omega, recursively
-    drilling into any nesting and shapes.
-
-    >>> enlist(arr.V([arr.S(9), arr.V([1, 2])]))
-    V(UINT8, FLAT, [9, 1, 2])
-    """
-    data = []
-    def inner(o: arr.Array) -> None:
-        for e in o.data:
-            elem = arr.disclose(e)
-            if arr.issimple(elem): # type: ignore
-                data.append(elem.data[0]) # type: ignore
-            else:
-                inner(elem) # type: ignore
-    inner(omega)
-    return arr.Aflat([len(data)], data) 
+    return omega.reshape(alpha.data)
 
 def ravel(omega: arr.Array) -> arr.Array:
     """
     Monadic , - create a vector of all major cells contained in omega
     """
-    return arr.Array([omega.bound], omega.type, omega.array_type, omega.data)
-
-def member(alpha: arr.Array, omega: arr.Array) -> arr.Array:
-    """
-    Dyadic ∊ - which cells in alpha are found as a cell in omega?
-    
-    >>> a = arr.A([3, 2],[arr.V([1, 2]), arr.V([1, 3]), arr.S(4), arr.V([1, 2, 3, 4])])
-    >>> b = arr.V([arr.V([1, 2]), arr.V([1, 2, 3, 4]), arr.V([1, 4])])
-    >>> member(b, a)
-    V(UINT1, FLAT, [1, 1, 0])
-    """
-    result = []
-
-    if arr.isscalar(omega):
-        cell_b = arr.disclose(omega)
-        for ac in arr.coords(alpha.shape):
-            cell_a = arr.disclose(alpha.get(ac))
-            result.append(int(arr.match(cell_a, cell_b)))
-    else:
-        for ac in arr.coords(alpha.shape):
-            cell_a = arr.disclose(alpha.get(ac))
-            found = 0
-            for oc in arr.coords(omega.shape):
-                cell_o = arr.disclose(omega.get(oc))
-                if arr.match(cell_a, cell_o):
-                    found = 1
-                    break
-            result.append(found)
-
-    return arr.Array(alpha.shape, arr.DataType.UINT1, arr.ArrayType.FLAT, bitarray(result))
+    return arr.V(omega.data)
                 
 def tally(omega: arr.Array) -> arr.Array:
-    return arr.S(len(omega.data))
+    return arr.S(len(list(omega.major_cells())))
 
 def enclose(omega: arr.Array) -> arr.Array:
-    if arr.issimple(omega):
+    if omega.issimple():
         return omega
     return arr.S(omega)
 
 def or_gcd(alpha: arr.Array, omega: arr.Array) -> arr.Array:
-    if alpha.type == omega.type == arr.DataType.UINT1:
-        f = pervade(lambda x, y:x|y, direct=True)
-    else:
+    if any(x not in [0, 1] for x in alpha.data) or any(x not in [0, 1] for x in omega.data):
         f = pervade(math.gcd)
+    else:
+        f = pervade(lambda x, y:x|y, direct=True)
     return f(alpha, omega)
 
 def and_lcm(alpha: arr.Array, omega: arr.Array) -> arr.Array:
-    if alpha.type == omega.type == arr.DataType.UINT1:
-        f = pervade(lambda x, y:x&y, direct=True)
-    else:
+    if any(x not in [0, 1] for x in alpha.data) or any(x not in [0, 1] for x in omega.data):
         f = pervade(math.lcm)
+    else:
+        f = pervade(lambda x, y:x&y, direct=True)
     return f(alpha, omega)
 
 def bool_not(omega: arr.Array) -> arr.Array:
-    if omega.type != arr.DataType.UINT1:
+    if any(x not in [0, 1] for x in omega.data):
         raise DomainError("DOMAIN ERROR: expected boolean array")
     f = mpervade(lambda y:~y)
     return f(omega)
-
-def replicate(alpha: arr.Array, omega: arr.Array) -> arr.Array:
-    if alpha.rank != 1 or alpha.array_type != arr.ArrayType.FLAT:
-        raise DomainError('DOMAIN ERROR')
-    if alpha.type == arr.DataType.UINT1: # compress
-        return arr.V([arr.disclose(omega.data[c]) for c in range(omega.bound) if alpha.data[c] == 1])
-
-    # Replicate. NOTE: may need to disclose ⍺, too
-    return arr.V(list(itertools.chain.from_iterable(itertools.repeat(arr.disclose(omega.data[i]), alpha.data[i]) for i in range(alpha.bound))))
-    
-def without(alpha: arr.Array, omega: arr.Array) -> arr.Array:
-    mask = member(alpha, omega)
-    mask.data = ~mask.data # type: ignore
-    return replicate(mask, alpha)
 
 def circle(alpha: int, omega: int|float|complex) -> float|complex:
     """
@@ -831,40 +517,42 @@ class Voc:
     be instantiated.
     """
     arrs: dict[str, arr.Array] = {
-        '⍬': arr.Array.zilde(),
+        '⍬': arr.Array([0], []),
         '⎕IO': arr.S(0),
-        '⎕A': arr.Array([26], arr.DataType.CHAR, arr.ArrayType.FLAT, list(ascii_letters[26:])),
-        '⎕D': arr.Array([10], arr.DataType.INT, arr.ArrayType.FLAT, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+        '⎕A': arr.V(ascii_letters[26:]),
+        '⎕D': arr.V(list(range(10))),
     }
 
-    funs: dict[str, Signature] = { 
-        #--- Monadic-----------------------Dyadic----------------
-        '~': (bool_not,                     without),
-        '∨': (None,                         or_gcd),
-        '∧': (None,                         and_lcm),
-        '∊': (enlist,                       member),
-        '⊂': (enclose,                      None), 
-        ',': (ravel,                        None),
-        '⍉': (lambda y: transpose([], y),   lambda x, y: transpose(x.to_list(), y)),
-        '⍴': (lambda y: rho(None, y),       rho),
-        '⍳': (index_gen,                    None),
-        '⍸': (where,                        None),
-        '≢': (tally,                        lambda x, y: arr.S(int(not arr.match(x, y)))),
-        '≡': (None,                         lambda x, y: arr.S(int(arr.match(x, y)))),
-        '⌈': (None,                         pervade(max)),
-        '⌊': (None,                         pervade(min)),
-        '!': (mpervade(math.factorial),     None),
-        '○': (mpervade(lambda o:o*math.pi), pervade(circle)),
-        '+': (None,                         pervade(operator.add)),
-        '-': (mpervade(operator.neg),       pervade(operator.sub)),
-        '×': (mpervade(lambda y:y/abs(y)),  pervade(operator.mul)),
-        '|': (mpervade(lambda y:abs(y)),    pervade(lambda x,y:y%x)),       # DYADIC NOTE ARG ORDER
-        '=': (None,                         pervade(lambda x,y:int(x==y))),
-        '>': (None,                         pervade(lambda x,y:int(x>y))),
-        '<': (None,                         pervade(lambda x,y:int(x<y))),
-        '≠': (None,                         pervade(lambda x,y:int(x!=y))),
-        '≥': (None,                         pervade(lambda x,y:int(x>=y))),
-        '≤': (None,                         pervade(lambda x,y:int(x<=y))),
+    funs: dict[str, Signature] = {
+        #--- Monadic-------------------------Dyadic---------------------------
+        '↑': (lambda o: o.mix(),             lambda a, o: o.take(a)),
+        '↓': (lambda o: o.split(),           None),
+        '~': (bool_not,                      lambda a, o: a.without(o)),
+        '∨': (None,                          or_gcd),
+        '∧': (None,                          and_lcm),
+        '∊': (lambda o: o.enlist(),          lambda a, o: o.contains(a)),
+        '⊂': (enclose,                       None), 
+        ',': (ravel,                         None),
+        '⍉': (lambda o: o.transpose(),       lambda a, o: o.transpose(a.as_list())),
+        '⍴': (lambda o: rho(None, o),        rho),
+        '⍳': (lambda o: o.index_gen(),       None),
+        '⍸': (lambda o: o.where(),           None),
+        '≢': (tally,                         lambda x, y: arr.S(int(not arr.match(x, y)))),
+        '≡': (None,                          lambda x, y: arr.S(int(arr.match(x, y)))),
+        '⌈': (mpervade(math.ceil),           pervade(max)),
+        '⌊': (mpervade(math.floor),          pervade(min)),
+        '!': (mpervade(math.factorial),      None),
+        '○': (mpervade(lambda o: o*math.pi), pervade(circle)),
+        '+': (None,                          pervade(operator.add)),
+        '-': (mpervade(operator.neg),        pervade(operator.sub)),
+        '×': (mpervade(lambda o:o/abs(o)),   pervade(operator.mul)),
+        '|': (mpervade(lambda o:abs(o)),     pervade(lambda a, o: o%a)),       # DYADIC NOTE ARG ORDER
+        '=': (None,                          pervade(lambda a, o: int(a==o))),
+        '>': (None,                          pervade(lambda a, o: int(a>o))),
+        '<': (None,                          pervade(lambda a, o: int(a<o))),
+        '≠': (None,                          pervade(lambda a, o: int(a!=o))),
+        '≥': (None,                          pervade(lambda a, o: int(a>=o))),
+        '≤': (None,                          pervade(lambda a, o: int(a<=o))),
     }
 
     ops: dict[str, Operator] = {

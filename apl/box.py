@@ -10,17 +10,16 @@ It's a complex problem to get right. See the file
 
 for known formatting errors.
 """
-from typing import Sequence
 from functools import reduce
-from apl.arr import Array, issimple, disclose, coords, kcells, DataType, S
+import apl.arr as arr
 
-def encase_vector(source: Array, res: list, nested: bool, empty: bool=False) -> list:
+def encase_vector(source: arr.Array, res: list, nested: bool, empty: bool=False) -> list:
     """
     Surround a vector with a frame.
     """
     rows = []
 
-    if not nested and source.type == DataType.CHAR:
+    if not nested and type(source.data[0]) == str:
         rows = [source.data] # type: ignore
         vtype = '─'
     else:
@@ -60,7 +59,7 @@ def encase_enclosure(res: list) -> list:
 
     return encased
 
-def encase(source: Array, res: list, *, nested: bool, empty: bool, wrap: bool=True) -> list:
+def encase(source: arr.Array, res: list, *, nested: bool, empty: bool, wrap: bool=True) -> list:
     """
     Surround a character-array representation of an array with a frame.
     """
@@ -70,7 +69,7 @@ def encase(source: Array, res: list, *, nested: bool, empty: bool, wrap: bool=Tr
 
     if len(shape) == 1:
         return encase_vector(source, res, nested, empty)
-    if source.type == DataType.CHAR:
+    if type(source.data[0]) == str:
         vtype = '─'
     else:
         vtype = '∊' if nested else '~'
@@ -135,24 +134,24 @@ def encase(source: Array, res: list, *, nested: bool, empty: bool, wrap: bool=Tr
 
     return encased
 
-def _format(a: Array, frame: bool=True) -> list:
+def _format(a: arr.Array, frame: bool=True) -> list:
     """
     Dispatch rendering on rank of cells in a.
     """
     if a.shape == []: # I am enclosed
-        elem = disclose(a)
+        elem = a.data[0]
         return encase(a, _format(elem), nested=True, empty=elem.shape==[0], wrap=True)
 
     res = []
     nested = False
     empty = False
-    for c in coords(a.shape):
+    for c in arr.Array.coords(a.shape):
         try: # Ugh.. dealing with empties; not great
-            cell = disclose(a.get(c))
+            cell = arr.enclose_if_simple(a.get(c))
         except IndexError:
             empty = True
-            cell = a.prototype()
-        if issimple(cell) or empty: # simple scalar
+            cell = a.prot()
+        if cell.issimple() or empty: # simple scalar
             res.append([(str(cell.data[0]).replace('-', '¯'))])
         else:
             nested = True
@@ -160,7 +159,7 @@ def _format(a: Array, frame: bool=True) -> list:
 
     return encase(a, res, nested=nested, empty=empty, wrap=frame)
 
-def box(mat: Array) -> list:
+def box(mat: arr.Array) -> list:
     """
     Convert an array to a string representation.
 
@@ -168,7 +167,7 @@ def box(mat: Array) -> list:
     """
 
     # Simple scalars don't box. Just convert any minus sign
-    if mat.shape == [] and issimple(mat):
+    if mat.issimple():
         return [str(mat.data[0]).replace('-', '¯')]
 
     # If we're rank 1 or 2, we need no additional adornment beyond
@@ -180,7 +179,7 @@ def box(mat: Array) -> list:
     # axes indicated by vertical 'bars' running down the left side.
 
     bars = len(mat.shape[:-2])
-    cells = [_format(c, False) for c in kcells(mat, 2)]
+    cells = [_format(c, False) for c in mat.kcells(2)]
 
     # cols = len(cells[0][0])
 
@@ -202,14 +201,14 @@ def box(mat: Array) -> list:
             else:
                 output.append(f"{'│'*(bars+1)}{row_str}{hpadd}│")
         output.append(divider)
-    if mat.type == DataType.CHAR:
+    if type(mat.data[0]) == str:
         output[-1] = "└"*bars+"└"+'─'*cols+"┘"
     else:
         output[-1] = "└"*bars+"└~"+'─'*(cols-1)+"┘"
 
     return output
 
-def disp(a: Array) -> None:
+def disp(a: arr.Array) -> None:
     aa = box(a)
     for r in aa:
         print(''.join(r))
