@@ -303,6 +303,33 @@ class Array:
             return Array(shape, y.prot().data)
         return Array(shape, ravel)
 
+    def drop(self, a):
+        """
+        Dyadic ↓ -- https://aplwiki.com/wiki/Drop
+
+        0=⍴⍴⍵: ⍵
+        1<⍴⍴⍺: ⍬
+        a ← ,⍺
+        (⍴a)>⍴⍴⍵: ⍬
+        a ← (⍴⍴⍵)↑a
+        a ← ((a>0)×0⌊a-⍴⍵) + (a≤0)×0⌈a+⍴⍵
+        a↑w
+        """
+        if self.rank == 0:
+            return self
+
+        if 1 < a.rank or len(a.shape) > self.rank:
+            raise RankError
+
+        aa = a.take(S(self.rank))
+        spec = []
+        for i in range(len(self.shape)):
+            bb = int(aa.data[i] <= 0) * max(0, aa.data[i] + self.shape[i])
+            cc = int(aa.data[i] >  0) * min(0, aa.data[i] - self.shape[i])
+            spec.append(bb+cc)
+
+        return self.take(V(spec))
+
     def mix(self) -> 'Array':
         """
         Monadic ↑ - trade depth for rank

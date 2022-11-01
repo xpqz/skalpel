@@ -526,7 +526,7 @@ class Voc:
     funs: dict[str, Signature] = {
         #--- Monadic-------------------------Dyadic---------------------------
         '↑': (lambda o: o.mix(),             lambda a, o: o.take(a)),
-        '↓': (lambda o: o.split(),           None),
+        '↓': (lambda o: o.split(),           lambda a, o: o.drop(a)),
         '~': (bool_not,                      lambda a, o: a.without(o)),
         '∨': (None,                          or_gcd),
         '∧': (None,                          and_lcm),

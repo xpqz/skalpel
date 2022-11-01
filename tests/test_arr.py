@@ -324,6 +324,31 @@ class TestMix:
         mixed = v.mix()
         assert arr.match(mixed, expected)
 
+class TestDrop:
+    def test_drop_vector(self):
+        v = arr.V([1, 2, 3, 4])
+        dropped = v.drop(arr.S(2))
+        expected = arr.V([3, 4])
+        assert arr.match(dropped, expected)
+
+    def test_drop_row_from_matrix(self):
+        a = arr.Array([2, 2], [1, 2, 3, 4])
+        dropped = a.drop(arr.S(1))
+        expected = arr.Array([1, 2], [3, 4])
+        assert arr.match(dropped, expected)
+
+    def test_drop_elem_drop_row_from_matrix(self):
+        a = arr.Array([2, 2], [1, 2, 3, 4])
+        dropped = a.drop(arr.V([1, 1]))
+        expected = arr.Array([1, 1], [4])
+        assert arr.match(dropped, expected)
+
+    def test_drop_elem_drop_row_from_matrix_neg(self):
+        a = arr.Array([2, 2], [1, 2, 3, 4])
+        dropped = a.drop(arr.V([-1, -1]))
+        expected = arr.Array([1, 1], [1])
+        assert arr.match(dropped, expected)
+
 class TestSplit:
     def test_split_arr(self):
         a = arr.Array([3, 3], list('abcdefghi'))
