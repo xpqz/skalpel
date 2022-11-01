@@ -527,6 +527,7 @@ class Voc:
         #--- Monadic-------------------------Dyadic---------------------------
         '↑': (lambda o: o.mix(),             lambda a, o: o.take(a)),
         '↓': (lambda o: o.split(),           lambda a, o: o.drop(a)),
+        # '⍪':  (None,                          lambda a, o: o.laminate(a)),
         '~': (bool_not,                      lambda a, o: a.without(o)),
         '∨': (None,                          or_gcd),
         '∧': (None,                          and_lcm),

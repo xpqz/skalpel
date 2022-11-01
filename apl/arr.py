@@ -49,7 +49,7 @@ class Array:
             return self
         if not self.shape and self.bound == 1:
             return self.data[0]
-        raise RankError
+        return self
 
     def as_list(self) -> list:
         if self.rank != 1:
@@ -285,7 +285,7 @@ class Array:
         if math.prod(cs):
             ci = [0 for _ in range(len(cs))] # indices for copying
 
-            while True: 
+            while q<len(ravel): 
                 ravel[q] = y.data[p]
                 h = len(cs)-1
                 while h >= 0 and ci[h] + 1 == cs[h]:
@@ -315,8 +315,8 @@ class Array:
         }
         
         """
-        if 1 < a.rank or len(a.shape) > self.rank:
-            raise RankError
+        if not a.bound:
+            return self
 
         s = self.shape[:]
         tally_a = len(a.data)
@@ -337,30 +337,27 @@ class Array:
 
         See https://aplwiki.com/wiki/Mix
         """
-        def f(c, o):
-            """
-            f ← {(⍴⍵)↓(3⍴1)∘,⍵}
-            """
-            if type(o) == int: # ,⍵
-                om = [o]
-                rho = 0
-            else:
-                rho = len(o) # ⍴⍵
-            return ([1 for _ in range(c)]+o)[rho:]
-
         if not len(self.shape) or not math.prod(self.shape) or (self.rank == 1 and not self.nested): return self
         shape = self.shape[:]
         shapes = [enclose_if_simple(e).shape[:] for e in self.data]
         r = max(len(s) for s in shapes)
-        shapes = [f(r, s) for s in shapes]
-        smax = list(max(*shapes))
-        smax_v = Array([len(smax)], smax)
+
+        sshapes = []
+        for s in shapes: # (⍴↓(r⍴1)∘,)¨shapes ⍝ prepend 1 to each shape to equal max length
+            rr1 = [1]*r
+            if len(s):
+                rr1[-len(s):] = s
+            sshapes.append(rr1)
+
+        smax = [max(v) for v in zip(*sshapes)] # max per axis
+        smax_v = V(smax)  
         ravel = []
-        for i, cell in enumerate(self.major_cells()):
-            elem = cell.unbox()
-            resized = elem.reshape(shapes[i])
-            taken = resized.take(smax_v)
+        for i, cell in enumerate(self.data):
+            elem = enclose_if_simple(cell)
+            reshaped = elem.reshape(sshapes[i])
+            taken = reshaped.take(smax_v)
             ravel.extend(taken.data)
+
         return Array(shape+smax, ravel)
 
     def split(self):

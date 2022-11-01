@@ -257,6 +257,22 @@ class TestTake:
         expected = arr.V([arr.V([arr.V(list('de')), arr.V([3, 4, 5])]), arr.V([arr.V(list('  ')), arr.V([0, 0, 0])])])
         assert arr.match(e, expected)
 
+    def test_take_two_rows(self):
+        """
+        2↑3 3⍴⍳9
+        ┌→────┐
+        ↓0 1 2│
+        │3 4 5│
+        └~────┘
+        """
+        a = arr.Array([3, 3], list(range(9)))
+        e = a.take(arr.S(2))
+        expected = arr.Array([2, 3], [
+            0, 1, 2,
+            3, 4, 5
+        ])
+        assert arr.match(e, expected)
+
 class TestMix:
     def test_mix_zilde(self):
         """
@@ -324,6 +340,33 @@ class TestMix:
         mixed = v.mix()
         assert arr.match(mixed, expected)
 
+    def test_messy(self):
+        """
+        ↑2 2⍴1(1 1 2⍴3 4)(5 6)(2 0⍴0)
+        ┌┌┌┌→──┐
+        ↓↓↓↓1 0│
+        ││││0 0│
+        ││││   │
+        ││││   │
+        ││││3 4│
+        ││││0 0│
+        ││││   │
+        ││││   │
+        ││││   │
+        ││││5 6│
+        ││││0 0│
+        ││││   │
+        ││││   │
+        ││││0 0│
+        ││││0 0│
+        └└└└~──┘
+        """
+        # 2 2⍴1(1 1 2⍴3 4)(5 6)(2 0⍴0)
+        a = arr.Array([2, 2], [1, arr.Array([1, 1, 2], [3, 4]), arr.V([5, 6]), arr.Array([2, 0], [0])])
+        mixed = a.mix()
+        expected = arr.Array([2, 2, 1, 2, 2], [1, 0, 0, 0, 3, 4, 0, 0, 5, 6, 0, 0, 0, 0, 0, 0])
+        assert arr.match(mixed, expected)
+
 class TestDrop:
     def test_drop_vector(self):
         v = arr.V([1, 2, 3, 4])
@@ -353,6 +396,29 @@ class TestDrop:
         a = arr.S(0)
         dropped = a.drop(arr.S(1))
         expected = arr.Array([0], [])
+        assert arr.match(dropped, expected)
+
+    def test_drop_000(self):
+        """
+        1 2↓3 ⍝ 0 0⍴0
+        ┌⊖┐
+        ⌽0│
+        └~┘
+        """
+        a = arr.S(3)
+        dropped = a.drop(arr.V([1, 2]))
+        expected = arr.Array([0, 0], [])
+        assert arr.match(dropped, expected)
+
+    def test_drop_zilde(self):
+        """
+        ⍬↓0
+        
+        0
+        """
+        a = arr.S(0)
+        dropped = a.drop(arr.Array([0], []))
+        expected = arr.S(0)
         assert arr.match(dropped, expected)
 
 class TestSplit:
