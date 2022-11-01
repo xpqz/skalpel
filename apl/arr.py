@@ -307,26 +307,27 @@ class Array:
         """
         Dyadic ↓ -- https://aplwiki.com/wiki/Drop
 
-        0=⍴⍴⍵: ⍵
-        1<⍴⍴⍺: ⍬
-        a ← ,⍺
-        (⍴a)>⍴⍴⍵: ⍬
-        a ← (⍴⍴⍵)↑a
-        a ← ((a>0)×0⌊a-⍴⍵) + (a≤0)×0⌈a+⍴⍵
-        a↑w
+        Drop ← {
+            s ← ⍴⍵
+            s ,← ((0=≢s)×≢⍺)⍴1          ⍝ Scalar rank extension
+            s ← (≢⍺)↑s                  ⍝ SHARP APL extension
+            ((s×¯1*⍺>0) + (-s)⌈s⌊⍺) ↑ ⍵ ⍝ Note: exp
+        }
+        
         """
-        if self.rank == 0:
-            return self
-
         if 1 < a.rank or len(a.shape) > self.rank:
             raise RankError
 
-        aa = a.take(S(self.rank))
-        spec = []
-        for i in range(len(self.shape)):
-            bb = int(aa.data[i] <= 0) * max(0, aa.data[i] + self.shape[i])
-            cc = int(aa.data[i] >  0) * min(0, aa.data[i] - self.shape[i])
-            spec.append(bb+cc)
+        s = self.shape[:]
+        tally_a = len(a.data)
+
+        s.extend([1 for _ in range(int(0==len(s))*tally_a)]) # Scalar rank extension
+        s = V(s).take(S(tally_a))                            # SHARP APL extension
+
+        spec = [
+            ss*(-1)**int(a.data[i]>0) + max(-ss, min(ss, a.data[i]))  # ((s×¯1*⍺>0) + (-s)⌈s⌊⍺)
+            for i, ss in enumerate(s.data)
+        ]
 
         return self.take(V(spec))
 

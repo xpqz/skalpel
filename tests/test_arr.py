@@ -349,6 +349,12 @@ class TestDrop:
         expected = arr.Array([1, 1], [1])
         assert arr.match(dropped, expected)
 
+    def test_drop_to_empty_yields_zilde(self):
+        a = arr.S(0)
+        dropped = a.drop(arr.S(1))
+        expected = arr.Array([0], [])
+        assert arr.match(dropped, expected)
+
 class TestSplit:
     def test_split_arr(self):
         a = arr.Array([3, 3], list('abcdefghi'))
