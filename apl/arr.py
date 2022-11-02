@@ -531,8 +531,22 @@ class Array:
 
         return Array(shape, data)
 
+    def table(self) -> 'Array':
+        """
+        Monadic ⍪ -- https://aplwiki.com/wiki/Table
+
+        Table is equivalent to reshaping with the shape where all trailing axis lengths have been 
+        replaced by their product.
+        """
+        if self.issimple():
+            return Array([1, 1], self.data[:])
+        if self.rank == 1:
+            return Array(self.shape[:]+[1], deepcopy(self.data))
+        shape = [self.shape[0]]+[math.prod(self.shape[1:])]
+        return Array(shape, deepcopy(self.data))
+
     def disclose(self) -> 'Array':
-        if not self.shape and len(self.data) == 1:
+        if self.issimple():
             return self
 
         if not self.bound: # empty coerces the prototype
@@ -589,6 +603,9 @@ class Array:
         return Array(arr.shape, result)
 
     def replicate(self, mask: 'Array') -> 'Array':
+        """
+        Dyadic X/Y - for arrays X and Y: https://aplwiki.com/wiki/Replicate
+        """
         if mask.rank > 1:
             raise RankError
 
