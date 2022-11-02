@@ -58,7 +58,7 @@ When `skalpel` eventually grows direct operator support, it will adopt BQN's nam
 
 ## What's implemented so far?
 
-Current built-ins can be seen in the file [skalpel.py](https://github.com/xpqz/skalpel/blob/main/apl/skalpel.py) in the `Voc` class towards the bottom. Basic support for dfns (no guards yet, and only local scope). Barely any operators (currently `/⌿¨⍥⍨`). Only numeric arrays!
+Current built-ins can be seen in the file [skalpel.py](https://github.com/xpqz/skalpel/blob/main/apl/skalpel.py) in the `Voc` class towards the bottom. Basic support for dfns (no guards yet, and only local scope). Barely any operators (currently `/⌿¨⍥⍨`). ~Only numeric arrays!~
 
 ## Are there tests? 
 
