@@ -41,6 +41,21 @@ class Array:
                     self.nested = True
         self.data = data
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Array):
+            return NotImplemented
+        return match(self, other)
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, Array):
+            return NotImplemented
+        for i, e in enumerate(self.data):
+            if i>=len(other.data):
+                return False
+            if e<other.data[i]:
+                return True
+        return False
+
     def issimple(self):
         return self.shape == [] and len(self.data) == 1 and not isinstance(self.data[0], Array)
 
@@ -615,6 +630,17 @@ class Array:
             a = mask
 
         return V(list(itertools.chain.from_iterable(itertools.repeat(self.data[i], a.data[i]) for i in range(a.bound))))
+
+    def grade(self, reverse: bool = False) -> list:
+        """
+        Grade - monadic ⍋ ⍒
+
+        https://aplwiki.com/wiki/Grade
+        """
+        cells = list(self.major_cells())
+        perm = [(cells[i], i) for i in range(len(cells))]
+        perm.sort(reverse=reverse)
+        return [t[1] for t in perm]
 
     def without(self, arr: 'Array') -> 'Array':
         """

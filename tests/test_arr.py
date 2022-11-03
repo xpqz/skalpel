@@ -902,3 +902,23 @@ class TestDecode:
     def test_decode_mixed_radix(self):
         s = arr.decode([24, 60, 60], [2, 46, 40])
         assert s == 10_000
+
+class TestGrade:
+    def test_grade_down_vector(self):
+        v = arr.V([97, 62, 23, 11, 83, 73, 8, 35, 68, 21, 38, 47, 70, 65, 85, 0, 64, 76, 87, 80])
+        permutation = v.grade()
+        ordered = v.at(arr.V(list(permutation)))
+        assert ordered.data == sorted(v.data)
+
+    def test_grade_up_vector(self):
+        v = arr.V([97, 62, 23, 11, 83, 73, 8, 35, 68, 21, 38, 47, 70, 65, 85, 0, 64, 76, 87, 80])
+        permutation = v.grade(reverse=True)
+        v_ordered = v.at(arr.V(list(permutation)))
+        assert v_ordered.data == sorted(v.data, reverse=True)
+
+    def test_grade_down_matrix(self):
+        m = arr.Array([2, 2], [9, 3, 5, 1])
+        permutation = m.grade()
+        m_ordered = m.rect([list(permutation), []])
+        assert m_ordered.data == [5, 1, 9, 3]
+        
