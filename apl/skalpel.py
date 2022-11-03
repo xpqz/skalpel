@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+import itertools
 import cmath, math
 import operator
 from string import ascii_letters
@@ -351,6 +352,80 @@ def reduce_first(left: str|list[tuple], right: Optional[Any], alpha: Optional[ar
 
     return omega.foldr(operand=fun, axis=0)
 
+def decode(alpha: arr.Array, omega: arr.Array) -> arr.Array:
+    """
+    Decode - dyadic ⊥
+
+    See https://aplwiki.com/wiki/Decode
+
+    This is a facade of arr.Array.decode(), handling a few rank combinations:
+
+    2 ⊥ 1 1 0 1
+  
+    13
+
+    24 60 60 ⊥ 2 46 40
+
+    10000
+
+    """
+    if alpha.issimple():
+        return arr.S(arr.decode(alpha.data*omega.bound, omega.data)) # Scalar extension
+    return arr.S(arr.decode(alpha.data, omega.data))
+
+def encode(alpha: arr.Array, omega: arr.Array) -> arr.Array:
+    """
+    Encode - dyadic ⊤
+
+    See https://aplwiki.com/wiki/Encode
+
+    This is a facade of arr.Array.encode(), handling a few rank combinations:
+
+    24 60 60 ⊤ 10000
+    ┌→──────┐
+    │2 46 40│
+    └~──────┘
+
+    2 2 2 2 ⊤ 5 7 12
+    ┌→────┐
+    ↓0 0 1│
+    │1 1 1│
+    │0 1 0│
+    │1 1 0│
+    └~────┘
+
+    (8 3⍴2 10 16)⊤121
+    ┌→────┐
+    ↓0 0 0│
+    │1 0 0│
+    │1 0 0│
+    │1 0 0│
+    │1 0 0│
+    │0 1 0│
+    │0 2 7│
+    │1 1 9│
+    └~────┘
+    """
+    if omega.rank > 1:
+        raise RankError('RANK ERROR') # Can ⍵ even be of rank > 1?
+
+    if omega.issimple() and alpha.rank == 1:
+        try:
+            return arr.V(arr.encode(alpha.data, omega.data[0]))
+        except TypeError:
+            raise DomainError('DOMAIN ERROR')
+
+    if alpha.rank == 1:
+        radix = [c.data for c in alpha.reshape([len(omega.data)]+alpha.shape).major_cells()]
+    else:
+        radix = [c.data for c in alpha.transpose().major_cells()]
+
+    try:
+        data = [arr.encode(*args) for args in itertools.zip_longest(radix, omega.data, fillvalue=omega.data[0])]
+    except TypeError:
+        raise DomainError('DOMAIN ERROR')
+
+    return arr.Array([len(data[0]), len(data)], list(itertools.chain.from_iterable(zip(*data))))
 
 def rho(alpha: Optional[arr.Array], omega: arr.Array) -> arr.Array:
     """
@@ -529,6 +604,8 @@ class Voc:
         '↓': (lambda o: o.split(),           lambda a, o: o.drop(a)),
         '⍪':  (lambda o: o.table(),          lambda a, o: o.laminate(a)),
         '~': (bool_not,                      lambda a, o: a.without(o)),
+        '⊤': (None,                          encode),
+        '⊥': (None,                          decode),
         '∨': (None,                          or_gcd),
         '∧': (None,                          and_lcm),
         '∊': (lambda o: o.enlist(),          lambda a, o: o.contains(a)),
