@@ -530,18 +530,24 @@ class Array:
         
         If omega is scalar, it's extended to fit
         """
-        if not omega.shape and len(omega.data) == 1:
+        if omega.issimple():
             omega = Array.fill([1]+self.shape[1:], omega.data)
 
-        if self.rank > omega.rank:
+        if self.issimple():
+            alpha = Array.fill([1]+omega.shape[1:], self.data)
+        else:
+            alpha = self
+
+
+        if alpha.rank > omega.rank:
             omega = omega.reshape([1]+omega.shape)
 
-        if self.shape[1:] != omega.shape[1:]: raise LengthError
+        if alpha.shape[1:] != omega.shape[1:]: raise LengthError('LENGTH ERROR')
 
-        data = deepcopy(self.data)
+        data = deepcopy(alpha.data)
         for c in omega.major_cells():
             data.extend(c.data)
-        shape = self.shape[:]
+        shape = alpha.shape[:]
         shape[0] += omega.shape[0]
 
         return Array(shape, data)

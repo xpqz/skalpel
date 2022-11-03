@@ -602,7 +602,7 @@ class Voc:
         #--- Monadic-------------------------Dyadic---------------------------
         '↑': (lambda o: o.mix(),               lambda a, o: o.take(a)),
         '↓': (lambda o: o.split(),             lambda a, o: o.drop(a)),
-        '⍪':  (lambda o: o.table(),            lambda a, o: o.laminate(a)),
+        '⍪':  (lambda o: o.table(),            lambda a, o: a.laminate(o)),
         '~': (bool_not,                        lambda a, o: a.without(o)),
         '⍋': (lambda o: arr.V(o.grade()),             None),
         '⍒': (lambda o: arr.V(o.grade(reverse=True)), None),
