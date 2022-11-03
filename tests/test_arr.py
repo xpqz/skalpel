@@ -559,6 +559,29 @@ class TestLaminate:
         expected = arr.Array([5, 3], list('abcdefghijklmno'))
         assert arr.match(a_lam_b, expected)
 
+class TestTable:
+    def test_table_scalar(self):
+        s = arr.S(3)
+        tabled = s.table()
+        expected = arr.Array([1, 1], [s.data[0]])
+        assert arr.match(tabled, expected)
+
+    def test_table_vector(self):
+        v = arr.V([3, 1, 4])
+        tabled = v.table()
+        expected = arr.Array([3, 1], v.data)
+        assert arr.match(tabled, expected)
+
+    def test_table_hirank(self):
+        """
+        a←2 3 4 2⍴⎕A
+        (⍪a)≡2 24⍴a
+        """
+        a = arr.Array.fill([2, 3, 4, 2], list('ABCDEFGHIJKLMNOPQRSTUVWXY'))
+        tabled = a.table()
+        expected = a.reshape([2, 24])
+        assert arr.match(tabled, expected)
+
 class TestMutate:
     def test_mutate_vector(self):
         a = arr.V([1, 0, 0, 1, 0, 1])
@@ -861,3 +884,21 @@ class TestIndexGen:
         r = arr.V([2, 2]).index_gen()
         e = arr.Array([2, 2], [arr.V([0, 0]), arr.V([0, 1]), arr.V([1, 0]), arr.V([1, 1])])
         assert arr.match(r, e)
+
+class TestEncode:
+    def test_encode(self):
+        b = arr.encode([2, 2, 2], 5)
+        assert b == [1, 0, 1]
+
+    def test_encode_mixed_radix(self):
+        b = arr.encode([24, 60, 60], 10_000)
+        assert b == [2, 46, 40]
+
+class TestDecode:
+    def test_decode(self):
+        s = arr.decode([2, 2, 2, 2], [1, 1, 0, 1])
+        assert s == 13
+
+    def test_decode_mixed_radix(self):
+        s = arr.decode([24, 60, 60], [2, 46, 40])
+        assert s == 10_000

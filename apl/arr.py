@@ -671,8 +671,14 @@ def match(a: 'Array', w: 'Array') -> bool:
 
 def encode(shape: list[int], idx: int) -> list[int]:
     """
-    encode returns the coordinate vector into shape corresponding
-    to the linear index idx into its ravel vector
+    Encode -- dyadic ⊤
+    
+    Returns the coordinate vector into shape corresponding to the 
+    linear index idx into its ravel vector
+
+    https://aplwiki.com/wiki/Encode
+
+    Inverse of `decode()`
 
     >>> encode([24, 60, 60], 10_000)
     [2, 46, 40]
@@ -684,6 +690,16 @@ def encode(shape: list[int], idx: int) -> list[int]:
     return encoded[::-1]
 
 def decode(shape: list[int], coords: list[int]) -> int:
+    """
+    Decode -- dyadic ⊥
+
+    Evaluates `coords` in terms of the radix system defined by `shape`.
+    
+    Inverse of `encode()`
+
+    https://aplwiki.com/wiki/Decode
+
+    """
     pos = 0
     rnk = len(shape)
     for axis in range(rnk):
