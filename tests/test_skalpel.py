@@ -1,6 +1,9 @@
+import pytest
+
+from apl.errors import RankError
 import apl.arr as arr
 from apl.parser import Parser
-from apl.skalpel import each, pervade, reduce_first, run, TYPE
+from apl.skalpel import each, pervade, reduce_first, run, TYPE, decode
 from apl.stack import Stack
 
 def run_code(src):
@@ -46,6 +49,144 @@ class TestReduce:
     def test_reduce_first(self):
         r = reduce_first('+', None, None, arr.Array([2, 2], [1, 2, 3, 4]), None, None)
         assert arr.match(r, arr.V([4, 6]))
+
+class TestDecode:
+    def test_decode_left_scalar(self):
+        """
+        2 ⊥ 1 1 0 1
+
+        13
+        """
+        alpha = arr.S(2)
+        omega = arr.V([1, 1, 0, 1])
+        expected = arr.S(13)
+        assert arr.match(decode(alpha, omega), expected)
+
+    def test_decode_vector_vector(self):
+        """
+        24 60 60 ⊥ 2 46 40
+
+        10000
+        """
+        alpha = arr.V([24, 60, 60])
+        omega = arr.V([2, 46, 40])
+        expected = arr.S(10_000)
+        assert arr.match(decode(alpha, omega), expected)
+
+    def test_decode_hirank_alpha_omega(self):
+        """
+        Decode is really doing an inner product. 
+
+        (4 3⍴1 1 1 2 2 2 3 3 3 4 4 4)⊥3 8⍴0 0 0 0 1 1 1 1 0 0 1 1 0 0 1 1 0 1 0 1 0 1 0 1
+        ┌→──────────────────┐
+        ↓0 1 1 2  1  2  2  3│
+        │0 1 2 3  4  5  6  7│
+        │0 1 3 4  9 10 12 13│
+        │0 1 4 5 16 17 20 21│
+        └~──────────────────┘
+        """
+        alpha = arr.Array([4, 3], [
+            1, 1, 1,
+            2, 2, 2,
+            3, 3, 3,
+            4, 4, 4,
+        ])
+
+        omega = arr.Array([3, 8], [
+            0, 0, 0, 0, 1, 1, 1, 1,
+            0, 0, 1, 1, 0, 0, 1, 1,
+            0, 1, 0, 1, 0, 1, 0, 1,
+        ])
+
+        expected = arr.Array([4, 8], [
+            0, 1, 1, 2,  1,  2,  2,  3,
+            0, 1, 2, 3,  4,  5,  6,  7,
+            0, 1, 3, 4,  9, 10, 12, 13, 
+            0, 1, 4, 5, 16, 17, 20, 21,
+        ])
+
+        result = decode(alpha, omega)
+        assert arr.match(result, expected)
+
+    def test_decode_raises_rank_error(self):
+        alpha = arr.Array([4, 2], [
+            1, 1,
+            2, 2,
+            3, 3,
+            4, 4,
+        ])
+        omega = arr.Array([3, 8], [
+            0, 0, 0, 0, 1, 1, 1, 1,
+            0, 0, 1, 1, 0, 0, 1, 1,
+            0, 1, 0, 1, 0, 1, 0, 1,
+        ])
+
+        with pytest.raises(RankError):
+            decode(alpha, omega)
+
+    def test_decode_extend_left_last_axis_is_1(self):
+        """
+        (4 1⍴1 2 3 4)⊥3 8⍴0 0 0 0 1 1 1 1 0 0 1 1 0 0 1 1 0 1 0 1 0 1 0 1
+        ┌→──────────────────┐
+        ↓0 1 1 2  1  2  2  3│
+        │0 1 2 3  4  5  6  7│
+        │0 1 3 4  9 10 12 13│
+        │0 1 4 5 16 17 20 21│
+        └~──────────────────┘
+        """
+        alpha = arr.Array([4, 1], [
+            1,
+            2,
+            3,
+            4,
+        ])
+                
+        omega = arr.Array([3, 8], [
+            0, 0, 0, 0, 1, 1, 1, 1,
+            0, 0, 1, 1, 0, 0, 1, 1,
+            0, 1, 0, 1, 0, 1, 0, 1,
+        ])
+
+        expected = arr.Array([4, 8], [
+            0, 1, 1, 2,  1,  2,  2,  3,
+            0, 1, 2, 3,  4,  5,  6,  7,
+            0, 1, 3, 4,  9, 10, 12, 13, 
+            0, 1, 4, 5, 16, 17, 20, 21,
+        ])
+
+        result = decode(alpha, omega)
+        assert arr.match(result, expected)
+
+    def test_decode_extend_right_first_axis_is_1(self):
+        """
+        (4 1⍴1 2 3 4)⊥1 8⍴0 0 0 0 1 1 1 1
+        ┌→──────────────────┐
+        ↓0 0 0 0  3  3  3  3│
+        │0 0 0 0  7  7  7  7│
+        │0 0 0 0 13 13 13 13│
+        │0 0 0 0 21 21 21 21│
+        └~──────────────────┘
+        """
+        alpha = arr.Array([4, 3], [
+            1, 1, 1,
+            2, 2, 2,
+            3, 3, 3,
+            4, 4, 4,
+        ])
+
+        omega = arr.Array([1, 8], [
+            0, 0, 0, 0, 1, 1, 1, 1,
+        ])
+
+        expected = arr.Array([4, 8], [
+            0, 0, 0, 0,  3,  3,  3,  3,
+            0, 0, 0, 0,  7,  7,  7,  7,
+            0, 0, 0, 0, 13, 13, 13, 13,
+            0, 0, 0, 0, 21, 21, 21, 21,
+        ])
+
+        result = decode(alpha, omega)
+        assert arr.match(result, expected)
 
 class TestBitwise:
     def test_or(self):
