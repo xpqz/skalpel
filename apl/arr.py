@@ -709,6 +709,7 @@ def encode(shape: list[int], idx: int) -> list[int]:
     linear index idx into its ravel vector
 
     https://aplwiki.com/wiki/Encode
+    https://xpqz.github.io/cultivations/Encode.html
 
     Inverse of `decode()`
 
@@ -723,13 +724,14 @@ def encode(shape: list[int], idx: int) -> list[int]:
 
 def decode(shape: list[int], coords: list[int]) -> int:
     """
-    Decode -- dyadic ⊥
+    Decode -- dyadic ⊥, aka `base`
 
     Evaluates `coords` in terms of the radix system defined by `shape`.
     
     Inverse of `encode()`
 
     https://aplwiki.com/wiki/Decode
+    https://xpqz.github.io/cultivations/Decode.html
 
     """
     pos = 0
