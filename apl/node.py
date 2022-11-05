@@ -198,8 +198,11 @@ class Node:
             raise EmitError('EMIT ERROR: node has no children')
         assert self.children[0].kind in CALLABLE
         
+        # self.children[1].emit()
+        # self.children[2].emit()
+
+        self.children[2].emit() # omega first
         self.children[1].emit()
-        self.children[2].emit()
 
         if self.children[0].kind == NodeType.DFN: # in-line dfn WRONG
             self.children[0].emit_dfn()

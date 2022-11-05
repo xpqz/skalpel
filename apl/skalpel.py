@@ -59,7 +59,10 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             stack.push([Value(arg, TYPE.fun)])
 
         elif instr == INSTR.set:
-            env[arg] = stack.pop()[0]
+            val = stack.pop()[0]
+            env[arg] = val
+            if val.kind == TYPE.arr:
+                stack.push([env[arg]])    # array assignments evaluate to their value, e.g 1+a←2
 
         elif instr == INSTR.seti:
             if arg not in env:
@@ -105,20 +108,20 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
         elif instr == INSTR.dya:
             if arg is None: # In-line dfn
                 dfn = stack.pop()[0]
-                (alpha, omega) = stack.pop(2)
+                (omega, alpha) = stack.pop(2)
                 assert dfn is not None and dfn.kind == TYPE.dfn
                 run(dfn.payload, {'⍺': alpha, '⍵': omega}, 0, stack) # type: ignore
                 continue
  
             if Voc.has_builtin(arg): # Built-in function
                 fn = Voc.get_fn(arg, Arity.DYAD)
-                (alpha, omega) = stack.pop(2)
+                (omega, alpha) = stack.pop(2)
                 stack.push([Value(fn(alpha.payload, omega.payload), TYPE.arr)])
                 continue
             
             if arg in env: # Dfn-by-name
                 assert env[arg].kind == TYPE.dfn
-                (alpha, omega) = stack.pop(2)
+                (omega, alpha) = stack.pop(2)
                 run(env[arg].payload, {'⍺': alpha, '⍵': omega}, 0, stack) # type: ignore
                 continue
             
@@ -126,10 +129,10 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
                 op = Voc.get_op(arg)
                 omomega = None
                 if op.arity == Arity.DYAD:
-                    (alfalfa, omomega) = (stack.pop()[0].payload, stack.pop()[0].payload)
+                    (alfalfa, omomega) = (stack.pop()[0].payload, stack.pop()[0].payload) # FIXME: order. Fix emit order in node.py, too
                 else:
                     alfalfa = stack.pop()[0].payload
-                (alpha, omega) = stack.pop(2)
+                (omega, alpha) = stack.pop(2)
                 fn = derive(op.f, alfalfa, omomega, Arity.DYAD)
                 stack.push([Value(fn(alpha.payload, omega.payload, env, stack), TYPE.arr)])
             else:
@@ -525,6 +528,8 @@ def ravel(omega: arr.Array) -> arr.Array:
     return arr.V(omega.data)
                 
 def tally(omega: arr.Array) -> arr.Array:
+    if omega.issimple():
+        return arr.S(1)
     return arr.S(len(list(omega.major_cells())))
 
 def enclose(omega: arr.Array) -> arr.Array:

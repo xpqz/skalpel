@@ -13,7 +13,7 @@ def run_code(src):
     env = {}
     stack = Stack()
     run(code, env, 0, stack)
-    return stack.stack[0]
+    return stack.stack[stack.stackptr]
 
 class TestPervade:
     def test_mat_plus_scalar(self):
@@ -237,6 +237,11 @@ class TestRun:
         src = "1 2 3 ⌊⍥≢ 1 2 3 4"
         result = run_code(src)
         assert arr.match(result.payload, arr.S(3))
+
+    def test_inline_assign(self):
+        src = "a×a←2 5"
+        result = run_code(src)
+        assert arr.match(result.payload, arr.V([4, 25]))
     
 class TestDfn:
     def test_inline_call(self):

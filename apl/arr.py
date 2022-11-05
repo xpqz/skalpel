@@ -49,12 +49,7 @@ class Array:
     def __lt__(self, other: object) -> bool:
         if not isinstance(other, Array):
             return NotImplemented
-        for i, e in enumerate(self.data):
-            if i>=len(other.data):
-                return False
-            if e<other.data[i]:
-                return True
-        return False
+        return self.data < other.data
 
     def issimple(self):
         return self.shape == [] and len(self.data) == 1 and not isinstance(self.data[0], Array)

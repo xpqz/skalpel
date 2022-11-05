@@ -41,7 +41,18 @@ class TestNode:
     def test_dop_deriving_dyad(self):
         instr = compile("1 2 3 ⌊⍥≢ 1 2 3 4")
         assert instr == [
-            INSTR.push, INSTR.push, INSTR.push, INSTR.vec, INSTR.push, INSTR.push, INSTR.push, INSTR.push, INSTR.vec, INSTR.fun, INSTR.fun, INSTR.dya,  
+            INSTR.push, 
+            INSTR.push,
+            INSTR.push,
+            INSTR.push,
+            INSTR.vec,
+            INSTR.push,
+            INSTR.push,
+            INSTR.push,
+            INSTR.vec,
+            INSTR.fun,
+            INSTR.fun,
+            INSTR.dya
         ]
 
     def test_dfn_call(self):
@@ -139,8 +150,33 @@ class TestNode:
 
     def test_indexed_read_higher_rank(self):
         instr = compile("a←2 2⍴1 2 3 4⋄a[(1 0)(0 0)]")
-        assert instr == [INSTR.push, INSTR.push, INSTR.vec, INSTR.push, INSTR.push, INSTR.push, INSTR.push, INSTR.vec, INSTR.dya, INSTR.set, INSTR.push, INSTR.push, INSTR.vec, INSTR.push, INSTR.push, INSTR.vec, INSTR.vec, INSTR.geti]
+        assert instr == [
+            INSTR.push, 
+            INSTR.push, 
+            INSTR.push, 
+            INSTR.push, 
+            INSTR.vec, 
+            INSTR.push, 
+            INSTR.push, 
+            INSTR.vec, 
+            INSTR.dya, 
+            INSTR.set, 
+            INSTR.push, 
+            INSTR.push, 
+            INSTR.vec, 
+            INSTR.push, 
+            INSTR.push, 
+            INSTR.vec, 
+            INSTR.vec, 
+            INSTR.geti
+        ]
 
     def test_two_d_zilde(self):
         instr = compile('2 3⍴⍬')
-        assert instr == [INSTR.push, INSTR.push, INSTR.vec, INSTR.get, INSTR.dya]
+        assert instr == [
+            INSTR.get,
+            INSTR.push,
+            INSTR.push,
+            INSTR.vec,
+            INSTR.dya
+        ]

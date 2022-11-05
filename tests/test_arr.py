@@ -921,4 +921,14 @@ class TestGrade:
         permutation = m.grade()
         m_ordered = m.rect([list(permutation), []])
         assert m_ordered.data == [5, 1, 9, 3]
-        
+
+    def test_grade_char_matrix(self):
+        """
+        ⍋3 3⍴'BOBALFZAK'
+        ┌→────┐
+        │1 0 2│
+        └~────┘
+        """
+        m = arr.Array([3, 3], list('BOBALFZAK'))
+        permutation = m.grade()
+        assert permutation == [1, 0, 2]
