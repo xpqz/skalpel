@@ -201,7 +201,7 @@ def mpervade(f: Callable, direct: bool=False) -> Callable:
         """
         if not omega.nested:
             return arr.Array(omega.shape, list(map(f, omega.data))) 
-        return arr.Array(omega.shape, [pervaded(arr.disclose(x)) for x in omega.data]) # type: ignore
+        return arr.Array(omega.shape, [pervaded(arr.enclose_if_simple(x)) for x in omega.data])
 
     return pervaded
 

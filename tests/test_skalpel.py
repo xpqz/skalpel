@@ -3,7 +3,7 @@ import pytest
 from apl.errors import RankError
 import apl.arr as arr
 from apl.parser import Parser
-from apl.skalpel import each, pervade, reduce_first, run, TYPE, decode
+from apl.skalpel import each, pervade, mpervade, reduce_first, run, TYPE, encode, decode
 from apl.stack import Stack
 
 def run_code(src):
@@ -43,6 +43,18 @@ class TestPervade:
         b = arr.S(12)
         result = plus(b, a)
         expected = arr.Array([3, 2], [66, 19, arr.Array([2, 2], [13, 13, 13, 13]), 16, 85, 15])
+        assert arr.match(result, expected)
+
+    def test_monadic_pervade(self):
+        """
+        -4(1 2 3)1j2
+        
+        ¯4(¯1 ¯2 ¯3)¯1j¯2
+        """
+        v = arr.V([4, arr.V([1, 2, 3]), complex(1, 2)])
+        negate = mpervade(lambda o: -o)
+        result = negate(v)
+        expected = arr.V([-4, arr.V([-1, -2, -3]), complex(-1, -2)])
         assert arr.match(result, expected)
 
 class TestReduce:
@@ -233,6 +245,19 @@ class TestDecode:
 
         expected = arr.V([0, 1, 2, 3, 4, 5, 6, 7])
         result = decode(alpha, omega)
+        assert arr.match(result, expected)
+
+class TestEncode:
+    def test_encode_scalar_left(self):
+        """
+        10⊤5 15 125
+
+        5 5 5
+        """
+        alpha = arr.S(10)
+        omega = arr.V([5, 15, 125])
+        expected = arr.V([5, 5, 5])
+        result = encode(alpha, omega)
         assert arr.match(result, expected)
 
 class TestBitwise:

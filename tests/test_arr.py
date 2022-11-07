@@ -590,6 +590,20 @@ class TestMutate:
         a.mutate(idx, vals)
         assert arr.match(a, arr.V([1, 1, 1, 1, 0, 1]))
 
+    def test_mutate_vector_scalar_extension(self):
+        """
+        a←⍳5⋄a[1 3]←7⋄a
+
+        ┌→────────┐
+        │0 7 2 7 4│
+        └~────────┘
+        """
+        v = arr.V([0, 1, 2, 3, 4])
+        idx = arr.V([1, 3])
+        val = arr.S(7)
+        v.mutate(idx, val)
+        assert arr.match(v, arr.V([0, 7, 2, 7, 4]))
+
     def test_mutate_matrix(self):
         a = arr.Array([3, 2], [
             1, 0, 
