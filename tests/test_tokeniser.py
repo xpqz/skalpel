@@ -1,3 +1,6 @@
+import pytest
+
+from apl.errors import UnexpectedToken
 from apl.tokeniser import Tokeniser, TokenType
 
 class TestTokeniser:
@@ -37,13 +40,27 @@ class TestTokeniser:
         assert types[1] == types[-1] == TokenType.SINGLEQUOTE
         
     def test_numeric_scalar(self):
-        src = "7"
+        src = "¯7"
         tokeniser = Tokeniser(src)
         tokens = tokeniser.lex()
 
         assert len(tokens) == 2
         assert tokens[1].kind == TokenType.SCALAR
-        assert tokens[1].tok == 7
+        assert tokens[1].tok == -7
+
+    def test_complex_scalar(self):
+        src = '23j¯3e¯5'
+        tokeniser = Tokeniser(src)
+        tokens = tokeniser.lex()
+        assert len(tokens) == 2
+        assert tokens[1].kind == TokenType.SCALAR
+        assert tokens[1].tok == complex(23, -3e-5)
+
+    def test_bad_complex_scalar(self):
+        src = '23j3jj'
+        tokeniser = Tokeniser(src)
+        with pytest.raises(UnexpectedToken):
+            tokens = tokeniser.lex()
 
     def test_character_scalar(self):
         src = "'h'"
