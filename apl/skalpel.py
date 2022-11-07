@@ -404,27 +404,30 @@ def decode(alpha: arr.Array, omega: arr.Array) -> arr.Array:
         pairs of elements in Y.  The first element of X has no effect on the result.
 
     """
-    if alpha.issimple(): # A scalar is extended
+    if alpha.issimple(): # Left scalar is extended
         left = alpha.reshape([omega.shape[0]])
     else:
         left = alpha
+
+    if omega.issimple(): # Right scalar is extended, too
+        right = omega.reshape([left.shape[0]])
+    else:
+        right = omega
 
     # If the last axis of X or the first axis of Y has a length of 1, the 
     # array is extended along that axis to conform with the other argument.
     if left.shape[-1] == 1: # extend trailling
         shape = left.shape[:]      
-        shape[-1] = omega.shape[0]
+        shape[-1] = right.shape[0]
         ravel = []
         for i in left.data:
-            ravel.extend([i]*omega.shape[0])
+            ravel.extend([i]*right.shape[0])
         left = arr.Array(shape, ravel)
 
-    if omega.shape[0] == 1: # extend leading
-        shape = omega.shape[:]
+    if right.shape[0] == 1: # extend leading
+        shape = right.shape[:]
         shape[0] = left.shape[-1]
-        right = omega.reshape(shape)
-    else:
-        right = omega
+        right = right.reshape(shape)
 
     if left.shape[-1] != right.shape[0]:
         raise RankError('RANK ERROR')
@@ -434,11 +437,15 @@ def decode(alpha: arr.Array, omega: arr.Array) -> arr.Array:
 
     # At least one side is hirank; we're doing an inner product
     shape = left.shape[:-1]+right.shape[1:]
+    if left.rank == 1: # Treat vectors as 1-row matrix
+        left.shape = [1, left.shape[0]]
+
     right = right.transpose()
     ravel = []
     for lc in left.major_cells():
         for rc in right.major_cells():
-            ravel.append(arr.decode(lc.data, rc.data))
+            decoded = arr.decode(lc.data, rc.data)
+            ravel.append(decoded)
 
     return arr.Array(shape, ravel)
 

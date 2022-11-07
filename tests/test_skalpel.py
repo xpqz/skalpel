@@ -62,6 +62,17 @@ class TestDecode:
         expected = arr.S(13)
         assert arr.match(decode(alpha, omega), expected)
 
+    def test_decode_right_scalar(self):
+        """
+        2 2 2⊥1
+        
+        7
+        """
+        alpha = arr.V([2, 2, 2])
+        omega = arr.S(1)
+        expected = arr.S(7)
+        assert arr.match(decode(alpha, omega), expected)
+
     def test_decode_vector_vector(self):
         """
         24 60 60 ⊥ 2 46 40
@@ -185,6 +196,42 @@ class TestDecode:
             0, 0, 0, 0, 21, 21, 21, 21,
         ])
 
+        result = decode(alpha, omega)
+        assert arr.match(result, expected)
+
+    def test_decode_vec_left_hirank_right(self):
+        """
+        1760 3 12⊥3 3⍴1 1 1 2 0 3 0 1 8
+
+        60 37 80
+        """
+        alpha = arr.V([1760, 3, 12])
+
+        omega = arr.Array([3, 3], [
+            1, 1, 1,
+            2, 0, 3,
+            0, 1, 8
+        ])
+        expected = arr.V([60, 37, 80])
+
+        result = decode(alpha, omega)
+        assert arr.match(result, expected)
+
+    def test_scalar_left_hirank_right(self):
+        """
+        2⊥3 8⍴0 0 0 0 1 1 1 1 0 0 1 1 0 0 1 1 0 1 0 1 0 1 0 1
+        
+        0 1 2 3 4 5 6 7
+        """
+        alpha = arr.S(2)
+
+        omega = arr.Array([3, 8], [
+            0, 0, 0, 0, 1, 1, 1, 1,
+            0, 0, 1, 1, 0, 0, 1, 1,
+            0, 1, 0, 1, 0, 1, 0, 1,
+        ])
+
+        expected = arr.V([0, 1, 2, 3, 4, 5, 6, 7])
         result = decode(alpha, omega)
         assert arr.match(result, expected)
 
