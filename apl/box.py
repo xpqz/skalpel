@@ -13,6 +13,18 @@ for known formatting errors.
 from functools import reduce
 import apl.arr as arr
 
+def format_scalar(a: arr.Array) -> str:
+    data = ''
+    if type(a.data[0]) == str:
+        return a.data[0]
+
+    if type(a.data[0]) == complex:
+        data = f"{str(a.data[0].real)}J{str(a.data[0].imag)}"
+    else:
+        data = str(a.data[0])
+
+    return data.replace('-', '¯')
+
 def encase_vector(source: arr.Array, res: list, nested: bool, empty: bool=False) -> list:
     """
     Surround a vector with a frame.
@@ -152,7 +164,7 @@ def _format(a: arr.Array, frame: bool=True) -> list:
             empty = True
             cell = a.prot()
         if cell.issimple() or empty: # simple scalar
-            res.append([(str(cell.data[0]).replace('-', '¯'))])
+            res.append([format_scalar(cell)])
         else:
             nested = True
             res.append(box(cell))
@@ -168,7 +180,7 @@ def box(mat: arr.Array) -> list:
 
     # Simple scalars don't box. Just convert any minus sign
     if mat.issimple():
-        return [str(mat.data[0]).replace('-', '¯')]
+        return [format_scalar(mat)]
 
     # If we're rank 1 or 2, we need no additional adornment beyond
     # the box, arrow(s) and nest indicator.

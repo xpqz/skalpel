@@ -47,7 +47,7 @@ TOK: dict[str, TokenType] = {
 
 class Token:
 
-    def __init__(self, kind: TokenType, tok: str|int|float) -> None:
+    def __init__(self, kind: TokenType, tok: str|int|float|complex) -> None:
         self.kind = kind
         self.tok = tok
 
@@ -73,25 +73,35 @@ class Tokeniser:
 
         return Token(TokenType.NAME, tok)
 
+    def get_cmplx(self, tok: str) -> Token:
+        parts = tok.split('J')
+        if len(parts) != 2:
+            raise UnexpectedToken('SYNTAX ERROR: malformed complex scalar')
+        (re, im) = parts
+        try:
+            cmplx = complex(float(re), float(im))
+        except TypeError:
+            raise UnexpectedToken('SYNTAX ERROR: malformed complex scalar')
+
+        return Token(TokenType.SCALAR, cmplx)
+
     def getnum(self) -> Token:
         tok = ''
         start = self.pos
-        negative = self.chunk[self.pos] == "¯"
-        if negative:
+
+        while self.pos < len(self.chunk) and (self.chunk[self.pos] in '.¯' or self.chunk[self.pos].isdigit()
+                                    or self.chunk[self.pos].lower() == 'e' or self.chunk[self.pos].lower() == 'j'):
+            tok += self.chunk[self.pos].upper()
             self.pos += 1
 
-        while self.pos < len(self.chunk) and (self.chunk[self.pos] == '.' or self.chunk[self.pos].isdigit()
-                                    or self.chunk[self.pos] == 'e'):
-            tok += self.chunk[self.pos]
-            self.pos += 1
+        tok = tok.replace('¯', '-')
+        if 'J' in tok:
+            return self.get_cmplx(tok)
 
         if '.' in tok:
             val = float(tok)
         else:
             val = int(tok)
-
-        if negative:
-            val *= -1
 
         return Token(TokenType.SCALAR, val)
 
