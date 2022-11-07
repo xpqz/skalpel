@@ -579,8 +579,12 @@ class Array:
 
         See https://aplwiki.com/wiki/Bracket_indexing
         """
-        if idx.shape != vals.shape:
-            raise RankError("RANK ERROR")
+
+        if vals.issimple():
+            vals = V(vals.data*idx.bound)
+
+        if idx.bound != vals.bound:
+            raise LengthError("LENGTH ERROR")
 
         if idx.rank == 0:
             if not idx.nested:

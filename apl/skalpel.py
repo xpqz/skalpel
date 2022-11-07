@@ -463,6 +463,11 @@ def encode(alpha: arr.Array, omega: arr.Array) -> arr.Array:
     │2 46 40│
     └~──────┘
 
+    10⊤5 15 125
+    ┌→────┐
+    │5 5 5│
+    └~────┘
+
     2 2 2 2 ⊤ 5 7 12
     ┌→────┐
     ↓0 0 1│
@@ -492,6 +497,12 @@ def encode(alpha: arr.Array, omega: arr.Array) -> arr.Array:
         except TypeError:
             raise DomainError('DOMAIN ERROR')
 
+    if alpha.issimple() and omega.rank == 1:
+        try:
+            return arr.V([arr.encode(alpha.data, o)[0] for o in omega.data])
+        except TypeError:
+            raise DomainError('DOMAIN ERROR')
+        
     if alpha.rank == 1:
         radix = [c.data for c in alpha.reshape([len(omega.data)]+alpha.shape).major_cells()]
     else:
@@ -705,7 +716,8 @@ class Voc:
         '+': (None,                            pervade(operator.add)),
         '-': (mpervade(operator.neg),          pervade(operator.sub)),
         '×': (mpervade(lambda o:o/abs(o)),     pervade(operator.mul)),
-        '|': (mpervade(lambda o:abs(o)),       pervade(lambda a, o: o%a)),       # DYADIC NOTE ARG ORDER
+        '*': (None,                            pervade(operator.pow)),
+        '|': (mpervade(operator.abs),          pervade(lambda a, o: o%a)),       # DYADIC NOTE ARG ORDER
         '=': (None,                            pervade(lambda a, o: int(a==o))),
         '>': (None,                            pervade(lambda a, o: int(a>o))),
         '<': (None,                            pervade(lambda a, o: int(a<o))),
