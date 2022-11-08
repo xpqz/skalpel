@@ -68,6 +68,71 @@ class TestIndexing:
             6, 7, 8
         ]))
 
+class TestPick:
+    def test_pick_zilde(self):
+        """
+        ⍬⊃3
+        
+        3
+        """
+        a = arr.S(3)
+        picked = a.pick(arr.Array([0], []))
+        expected = arr.S(3)
+
+        assert arr.match(picked, expected)
+
+    def test_pick_simple(self):
+        """
+        2⊃'pick'
+        
+        'c'
+        """
+        v = arr.V('pick')
+        picked = v.pick(arr.S(2))
+        expected = arr.S('c')
+
+        assert arr.match(picked, expected)
+
+    def test_pick_nested(self):
+        """
+        1⊃'foo' 'bar'
+
+        'bar'
+        """
+        a = arr.V([arr.V('foo'), arr.V('bar')])
+        picked = a.pick(arr.S(1))
+        expected = arr.V('bar')
+
+        assert arr.match(picked, expected)
+
+    def test_pick_vector_idx(self):
+        """
+        1 2⊃'foo' 'bar'
+
+        'r'
+        """
+        a = arr.V([arr.V('foo'), arr.V('bar')])
+        picked = a.pick(arr.V([1, 2]))
+        expected = arr.S('r')
+
+        assert arr.match(picked, expected)
+
+    def test_pick_hirank(self):
+        """
+        (⊂1 0)⊃2 2⍴'abcd'
+
+        'c'
+        """
+        a = arr.Array([2, 2], list('abcd'))
+        picked = a.pick(arr.S(arr.V([1, 0])))
+        expected = arr.S('c')
+        assert arr.match(picked, expected)
+
+# 2⊃'pick' ←→ 'c'
+# (⊂1 0)⊃2 2⍴'abcd' ←→ 'c'
+# 1⊃'foo' 'bar' ←→ 'bar'
+# # 1 2⊃'foo' 'bar' ←→ 'r'
+
 class TestKCells:
     def test_0_cells(self):
         shape = [3, 4, 5]
