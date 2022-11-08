@@ -688,6 +688,9 @@ def circle(alpha: int, omega: int|float|complex) -> float|complex:
 
     raise DomainError(f"DOMAIN ERROR: unknown magic number for ○: {alpha}")
 
+def ucs(o: Any) -> Any:
+    return ord(o) if type(o) == str else chr(o)
+    
 class Voc:
     """
     Voc is the global vocabulary of built-in arrays, functions and operators. This class should not
@@ -737,7 +740,7 @@ class Voc:
         '≠': (None,                            pervade(lambda a, o: int(a!=o))),
         '≥': (None,                            pervade(lambda a, o: int(a>=o))),
         '≤': (None,                            pervade(lambda a, o: int(a<=o))),
-        '⎕UCS': (mpervade(ord),                 None),
+        '⎕UCS': (mpervade(ucs),                 None),
     }
 
     ops: dict[str, Operator] = {
