@@ -108,7 +108,7 @@ class Node:
         idx.emit()
         if receiver.kind in {NodeType.ARG, NodeType.ID}:
             Node.code.append((INSTR.geti, receiver.main_token.tok)) # type: ignore
-        elif receiver.kind == NodeType.VECTOR:
+        elif receiver.kind in {NodeType.VECTOR, NodeType.CHARVEC}:
             receiver.emit_vector()
             Node.code.append((INSTR.geti, None))
         else:
