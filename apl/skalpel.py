@@ -737,6 +737,7 @@ class Voc:
         '≠': (None,                            pervade(lambda a, o: int(a!=o))),
         '≥': (None,                            pervade(lambda a, o: int(a>=o))),
         '≤': (None,                            pervade(lambda a, o: int(a<=o))),
+        '⎕UCS': (mpervade(ord),                 None),
     }
 
     ops: dict[str, Operator] = {

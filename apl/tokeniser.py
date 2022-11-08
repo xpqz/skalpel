@@ -8,6 +8,8 @@ funs = '⎕!&*+,-./<=>?\\^|~×÷↑→↓∊∣∧∨∩∪≠≡≢≤≥⊂⊃
 
 operators = '@⌸⌹⌺⍠⌿⍀∘⍠⍣⍤⍥⍨¨/\\'
 
+quadfuns = ('⎕UCS')
+
 class TokenType(Enum):
     NAME = auto()
     FNAME = auto()
@@ -67,6 +69,9 @@ class Tokeniser:
         while self.pos < len(self.chunk) and (self.chunk[self.pos] in alpha or self.chunk[self.pos].isdigit()):
             tok += self.chunk[self.pos]
             self.pos += 1
+
+        if tok.upper() in quadfuns: 
+            return Token(TokenType.FUN, tok.upper())
 
         if tok[0].isupper(): # Names starting with Upper Case Letter is considered a function reference
             return Token(TokenType.FNAME, tok)
