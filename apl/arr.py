@@ -146,6 +146,27 @@ class Array:
 
         return Array(shape, data)
 
+    def pick(self, idx: 'Array') -> 'Array':
+        """
+        idx is a singleton or vector of indices 
+
+        https://help.dyalog.com/latest/#Language/Primitive%20Functions/Pick.htm
+
+        Note: this is incomplete, as reach indexing is nyi
+        """
+        if idx.shape == [0] and idx.data == []: # zilde
+            return self
+
+        if idx.rank == 0:
+            return deepcopy(enclose_if_simple(self.get(idx.data[0])))
+
+        current = self
+        for axis in idx.data:
+            mc = current.major_cell(axis)
+            current = mc.data[0]
+
+        return deepcopy(enclose_if_simple(current))
+
     @staticmethod
     def coords(shape: list[int]) -> Generator:
         """
@@ -199,6 +220,15 @@ class Array:
         size = math.prod(self.shape[1:])
         for i in range(self.shape[0]):
             yield Array(self.shape[1:], self.data[i*size:(i+1)*size])
+
+    def major_cell(self, idx: int) -> 'Array':
+        """
+        Return the major cell with index idx
+        """
+        if not self.shape:
+            return self
+        size = math.prod(self.shape[1:])
+        return Array(self.shape[1:], self.data[idx*size:(idx+1)*size])
 
     def prot(self) -> 'Array':
         """
