@@ -1,9 +1,9 @@
 import pytest
 
-from apl.errors import RankError
+from apl.errors import DomainError, RankError
 import apl.arr as arr
 from apl.parser import Parser
-from apl.skalpel import each, pervade, mpervade, reduce_first, run, TYPE, encode, decode
+from apl.skalpel import each, pervade, mpervade, reduce_first, run, TYPE, encode, decode, bool_not
 from apl.stack import Stack
 
 def run_code(src):
@@ -267,6 +267,61 @@ class TestBitwise:
         b = arr.V([0, 1, 0, 1])
         c = bwo(a, b)
         assert arr.match(c, arr.V([1, 1, 1, 1]))
+
+    def test_not_flat(self):
+        """
+        ~3 3⍴1 0 1  0 1 0  1 1 1
+        ┌→────┐
+        ↓0 1 0│
+        │1 0 1│
+        │0 0 0│
+        └~────┘
+        """
+        a = arr.Array([3, 3], [
+            1, 0, 1,
+            0, 1, 0,
+            1, 1, 1,
+        ])
+        
+        bitflipped = bool_not(a)
+
+        expected =  arr.Array([3, 3], [
+            0, 1, 0,
+            1, 0, 1,
+            0, 0, 0,
+        ])
+
+        assert arr.match(bitflipped, expected)
+
+    def test_not_nested(self):
+        """
+        ~(1 0 1) (0 1 0) (1 1 1)
+        ┌→────────────────────────┐
+        │ ┌→────┐ ┌→────┐ ┌→────┐ │
+        │ │0 1 0│ │1 0 1│ │0 0 0│ │
+        │ └~────┘ └~────┘ └~────┘ │
+        └∊────────────────────────┘
+        """
+        v = arr.V([arr.V([1, 0, 1]), arr.V([0, 1, 0]), arr.V([1, 1, 1])])
+        
+        bitflipped = bool_not(v)
+
+        expected =  arr.V([arr.V([0, 1, 0]), arr.V([1, 0, 1]), arr.V([0, 0, 0])])
+
+        assert arr.match(bitflipped, expected)
+
+    def test_not_non_boolean_raises(self):
+        """
+        ~1 2 3
+        
+        DOMAIN ERROR
+            ~1 2 3
+            ∧
+        """
+        v = arr.V([1, 2, 3])
+        
+        with pytest.raises(DomainError):
+            bool_not(v)
 
 class TestEach:
     def test_each(self):

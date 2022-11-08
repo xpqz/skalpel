@@ -6,6 +6,8 @@ import operator
 from string import ascii_letters
 from typing import Any, Callable, Optional, TypeAlias
 
+from bitarray import bitarray
+
 import apl.arr as arr
 from apl.errors import ArityError, DomainError, LengthError, NYIError, RankError
 from apl.stack import Stack
@@ -575,9 +577,14 @@ def and_lcm(alpha: arr.Array, omega: arr.Array) -> arr.Array:
     return f(alpha, omega)
 
 def bool_not(omega: arr.Array) -> arr.Array:
-    if any(x not in [0, 1] for x in omega.data):
-        raise DomainError("DOMAIN ERROR: expected boolean array")
-    f = mpervade(lambda y:~y)
+    if not omega.nested:
+        try:
+            ba = bitarray(omega.data)
+        except ValueError:
+            raise DomainError("DOMAIN ERROR: expected boolean array")
+        return arr.Array(omega.shape, list(~ba))
+
+    f = mpervade(lambda y:y^1)
     return f(omega)
 
 def circle(alpha: int, omega: int|float|complex) -> float|complex:
