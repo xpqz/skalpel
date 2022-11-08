@@ -357,6 +357,11 @@ class TestDfn:
         result = run_code(src)
         assert arr.match(result.payload, arr.S(4))
 
+    def test_dfn_index(self):
+        src = "{1 2 3[⍵]}1"
+        result = run_code(src)
+        assert arr.match(result.payload, arr.S(2))
+
 class TestOperator:
     def test_each_primitive(self):
         src = '≢¨(1 2 3)(1 2)(1 2 3 4)'

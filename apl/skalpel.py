@@ -87,11 +87,16 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
                     raise RankError
                 stack.push([Value(val.payload.at(idx.payload), TYPE.arr)]) # type: ignore
             else:
+                idx = stack.pop()[0]
+                if arg.upper() in Voc.arrs: # System array constant
+                    sysarr = Voc.arrs[arg.upper()]
+                    stack.push([Value(sysarr.at(idx.payload), TYPE.arr)])
+                    continue
+
                 if arg not in env:
                     raise ValueError(f'VALUE ERROR: Undefined name: "{arg}"')
                 if env[arg].kind != TYPE.arr:
                     raise RankError
-                idx = stack.pop()[0]
                 stack.push([Value(env[arg].payload.at(idx.payload), TYPE.arr)]) # type: ignore
 
         elif instr == INSTR.dfn:
@@ -108,7 +113,7 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
         elif instr == INSTR.dya:
             if arg is None: # In-line dfn
                 dfn = stack.pop()[0]
-                (omega, alpha) = stack.pop(2)
+                (omega, alpha) = stack.pop(2) # note: no .payload!
                 assert dfn is not None and dfn.kind == TYPE.dfn
                 run(dfn.payload, {'⍺': alpha, '⍵': omega}, 0, stack) # type: ignore
                 continue
@@ -121,7 +126,7 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             
             if arg in env: # Dfn-by-name
                 assert env[arg].kind == TYPE.dfn
-                (omega, alpha) = stack.pop(2)
+                (omega, alpha) = stack.pop(2) # note: no .payload!
                 run(env[arg].payload, {'⍺': alpha, '⍵': omega}, 0, stack) # type: ignore
                 continue
             
@@ -142,7 +147,7 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             if arg is None: # In-line dfn
                 dfn = stack.pop()[0]
                 assert dfn is not None and dfn.kind == TYPE.dfn
-                omega = stack.pop()[0].payload
+                omega = stack.pop()[0] # note: no .payload!
                 run(dfn.payload, {'⍵': omega}, 0, stack) # type: ignore
                 continue
  
@@ -154,7 +159,7 @@ def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
             
             if arg in env: # Dfn-by-name
                 assert env[arg].kind == TYPE.dfn
-                omega = stack.pop()[0].payload
+                omega = stack.pop()[0] # note: no .payload!
                 run(env[arg].payload, {'⍵': omega}, 0, stack) # type: ignore
                 continue
             
