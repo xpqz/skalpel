@@ -707,7 +707,7 @@ class Voc:
         '∧': (None,                            and_lcm),
         '∊': (lambda o: o.enlist(),            lambda a, o: o.contains(a)),
         '⊂': (enclose,                         None),
-        '⊃': (None,                            lambda a, o: o.pick(a)),
+        '⊃': (lambda o: o.pick(arr.S(0)),      lambda a, o: o.pick(a)),
         ',': (ravel,                           None),
         '⍉': (lambda o: o.transpose(),         lambda a, o: o.transpose(a.as_list())),
         '⍴': (lambda o: rho(None, o),          rho),
