@@ -62,8 +62,12 @@ class Array:
         return self
 
     def as_list(self) -> list:
+        if self.issimple():
+            return self.data
+
         if self.rank != 1:
-            raise RankError
+            raise RankError('RANK ERROR')
+
         data = []
         for e in self.data:
             if isinstance(e, Array):
@@ -747,8 +751,11 @@ def encode(shape: list[int], idx: int) -> list[int]:
     """
     encoded: list[int] = []
     for axis in shape[::-1]:
-        idx, loc = divmod(idx, axis)
-        encoded.append(loc)
+        try:
+            idx, loc = divmod(idx, axis)
+            encoded.append(loc)
+        except ZeroDivisionError:
+            encoded.append(idx)
     return encoded[::-1]
 
 def decode(shape: list[int], coords: list[int]) -> int:

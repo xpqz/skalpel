@@ -62,4 +62,4 @@ Current built-ins can be seen in the file [skalpel.py](https://github.com/xpqz/s
 
 ## Are there tests? 
 
-As a matter of fact, yes. We use `pytest` for unit tests, so you need that if you intend to run them. Tests are found in the suitably named `tests` directory. There is also the file `t.py` which runs the test suite for `ngn/apl`. At the moment, it only passes a minute fraction of those (about ~10%~ 25%), but it's aspirational. Many of the source files also contain doctests.
+As a matter of fact, yes. We use `pytest` for unit tests, so you need that if you intend to run them. Tests are found in the suitably named `tests` directory. There is also the file `t.py` which runs the test suite for `ngn/apl`. At the moment, it only passes a minute fraction of those (about ~10%~ ~25%~ 38%), but it's aspirational. Many of the source files also contain doctests.

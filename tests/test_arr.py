@@ -941,6 +941,18 @@ class TestTranspose:
         e = arr.V([0, 4, 8])
         assert arr.match(r, e)
 
+    def test_dyadic_transpose_zero_vector(self):
+        """
+        0⍉1 2
+        ┌→──┐
+        │1 2│
+        └~──┘
+        """
+        v = arr.V([1, 2])
+        vv = v.transpose([0])
+        expected = arr.V([1, 2])
+        assert arr.match(v, vv)
+
 class TestIndexGen:
     def test_index_gen_scalar(self):
         length = 10
