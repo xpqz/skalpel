@@ -656,6 +656,55 @@ class Array:
 
         return Array(arr.shape, result)
 
+    def index_of(self, arr: 'Array') -> 'Array':
+        """
+        Dyadic ⍳ -- Index Of
+
+        https://aplwiki.com/wiki/Index_Of
+        https://help.dyalog.com/latest/index.htm#Language/Primitive%20Functions/Index%20Of.htm
+
+        Dyalog's docs:
+
+        R←X⍳Y
+
+        Y may be any array. X may be any array of rank 1 or more.
+
+        In general, the function locates the first occurrence of sub-arrays in Y which match major 
+        cells of X, where a major cell is a sub-array on the leading dimension of X with shape 1↓⍴X. 
+        The shape of the result R is (1-⍴⍴X)↓⍴Y.
+
+        If a sub-array of Y cannot be found in X, then the corresponding element of R will be ⎕IO+⊃⍴X.
+
+        In particular, if X is a vector, the result R is a simple integer array with the same shape 
+        as Y identifying where elements of Y are first found in X. If an element of Y cannot be found
+        in X, then the corresponding element of R will be ⎕IO+⊃⍴X.
+
+        Elements of X and Y are considered the same if X≡Y returns 1 for those elements.
+        """
+        if self.rank == 0:
+            raise RankError('RANK ERROR')
+
+        if self.rank == 1 and arr.rank == 0:
+            try:
+                return S(self.data.index(arr.data[0]))
+            except ValueError:
+                return S(self.shape[0])
+
+        sel = 1-len(self.shape)
+        shape = arr.shape[sel:] if sel>=0 else arr.shape[:sel]
+        if self.rank != arr.rank:
+            arr = Array.fill([1, arr.bound], arr.data)
+
+        result = []
+        smc = list(self.major_cells())
+        for cell_a in arr.major_cells():
+            try:
+                result.append(smc.index(cell_a))
+            except ValueError:
+                result.append(self.shape[0])        
+
+        return Array(shape, result)
+
     def replicate(self, mask: 'Array') -> 'Array':
         """
         Dyadic X/Y - for arrays X and Y: https://aplwiki.com/wiki/Replicate

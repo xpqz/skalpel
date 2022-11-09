@@ -690,7 +690,7 @@ def circle(alpha: int, omega: int|float|complex) -> float|complex:
 
 def ucs(o: Any) -> Any:
     return ord(o) if type(o) == str else chr(o)
-    
+
 class Voc:
     """
     Voc is the global vocabulary of built-in arrays, functions and operators. This class should not
@@ -721,7 +721,7 @@ class Voc:
         ',': (ravel,                           None),
         '⍉': (lambda o: o.transpose(),         lambda a, o: o.transpose(a.as_list())),
         '⍴': (lambda o: rho(None, o),          rho),
-        '⍳': (lambda o: o.index_gen(),         None),
+        '⍳': (lambda o: o.index_gen(),         lambda a, o: a.index_of(o)),
         '⍸': (lambda o: o.where(),             None),
         '≢': (tally,                           lambda x, y: arr.S(int(not arr.match(x, y)))),
         '≡': (None,                            lambda x, y: arr.S(int(arr.match(x, y)))),
