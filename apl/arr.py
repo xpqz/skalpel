@@ -172,6 +172,21 @@ class Array:
         return deepcopy(enclose_if_simple(current))
 
     @staticmethod
+    def depth(a: Any) -> int:
+        """
+        Monadic ≡ 
+        
+        See https://aplwiki.com/wiki/Depth
+        """
+        if isinstance(a, Array):
+            if a.issimple():
+                return 0
+            if not a.bound:
+                return 1+Array.depth(a.prot())
+
+        return isinstance(a, Array) and max(map(Array.depth, a.data))+1
+
+    @staticmethod
     def coords(shape: list[int]) -> Generator:
         """
         Generator. Step through the space defined by the shape, generating 
@@ -322,15 +337,18 @@ class Array:
         ravel = []
         for i in range(math.prod(shape)):
             prot = y.prot()
-            if not prot.shape and len(prot.data) == 1: # keep simple scalars unboxed
+            if prot.issimple(): # keep simple scalars unboxed
                 prot = prot.data[0]
             ravel.append(prot)
 
         if math.prod(cs):
             ci = [0 for _ in range(len(cs))] # indices for copying
 
-            while q<len(ravel): 
-                ravel[q] = y.data[p]
+            while q<len(ravel):
+                try: 
+                    ravel[q] = y.data[p]
+                except IndexError: # If we're overtaking, we can drop out. The ravel contains the remaining prot elems. 
+                    break
                 h = len(cs)-1
                 while h >= 0 and ci[h] + 1 == cs[h]:
                     p -= ci[h] * xd[h]
@@ -345,6 +363,7 @@ class Array:
 
         if not ravel and shape == [0]:
             return Array(shape, y.prot().data)
+
         return Array(shape, ravel)
 
     def drop(self, a):

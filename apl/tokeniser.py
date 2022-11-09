@@ -8,7 +8,7 @@ funs = '⎕!&*+,-./<=>?\\^|~×÷↑→↓∊∣∧∨∩∪≠≡≢≤≥⊂⊃
 
 operators = '@⌸⌹⌺⍠⌿⍀∘⍠⍣⍤⍥⍨¨/\\'
 
-quadfuns = ('⎕UCS')
+quadfuns = {'⎕UCS'}
 
 class TokenType(Enum):
     NAME = auto()
