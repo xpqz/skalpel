@@ -713,6 +713,8 @@ class Voc:
         '⍒': (lambda o: arr.V(o.grade(reverse=True)), None),
         '⊤': (None,                                   encode),
         '⊥': (None,                                   decode),
+        '⊣': (lambda o: o,                            lambda a, o: a),
+        '⊢': (lambda o: o,                            lambda a, o: o),
         '∨': (None,                                   or_gcd),
         '∧': (None,                                   and_lcm),
         '∊': (lambda o: o.enlist(),                   lambda a, o: o.contains(a)),
