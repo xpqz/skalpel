@@ -283,6 +283,33 @@ class Array:
         inner(elements)
         return elements
 
+    def catenate(self, arr: 'Array') -> 'Array':
+        """
+        Dyadic , - catenate. Trailling axis.
+
+        https://aplwiki.com/wiki/Catenate
+        """
+        if not {self.rank, arr.rank}-{0, 1}:
+            return V(deepcopy(self.data+arr.data))
+
+        if arr.rank == 0:
+            shape = self.shape[:]
+            shape[-1] = 1
+            arr = Array.fill(shape, arr.data)
+            
+        if arr.rank == self.rank - 1: # TODO: same for the reverse
+            arr = Array(arr.shape+[1], arr.data)
+        
+        if arr.shape[:-1] != self.shape[:-1]:
+            raise RankError("LENGTH ERROR")
+
+        ravel: list[Array] = []
+        for a, b in itertools.zip_longest(self.major_cells(), arr.major_cells(), fillvalue=enclose_if_simple(arr.data[0])):
+            ravel.extend(a.data+b.data)
+        shape = self.shape[:]
+        shape[-1] += arr.shape[-1]
+        return Array(shape, deepcopy(ravel))
+
     def reshape(self, shape: list[int]) -> 'Array':
         """
         Dyadic ⍴ -- reshape. Will truncate, or cycle the data if the 
@@ -372,7 +399,7 @@ class Array:
 
         return Array(shape, ravel)
 
-    def drop(self, a):
+    def drop(self, a: 'Array') -> 'Array':
         """
         Dyadic ↓ -- https://aplwiki.com/wiki/Drop
 

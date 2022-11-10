@@ -645,6 +645,75 @@ class TestLaminate:
         expected = arr.Array([5, 3], list('abcdefghijklmno'))
         assert arr.match(a_lam_b, expected)
 
+class TestCatenate:
+    def test_cat_vec_vec(self):
+        """
+        1 2 3,4 5 6
+        ┌→──────────┐
+        │1 2 3 4 5 6│
+        └~──────────┘
+        """
+        alpha = arr.V([1, 2, 3])
+        omega = arr.V([4, 5, 6])
+        catted = alpha.catenate(omega)
+        expected = arr.V([1, 2, 3, 4, 5, 6])
+        assert arr.match(catted, expected)
+
+    def test_cat_vec_scalar(self):
+        """
+        1 2 3,4
+        ┌→──────┐
+        │1 2 3 4│
+        └~──────┘
+        """
+        alpha = arr.V([1, 2, 3])
+        omega = arr.S(4)
+        catted = alpha.catenate(omega)
+        expected = arr.V([1, 2, 3, 4])
+        assert arr.match(catted, expected)
+
+    def test_cat_scalar_vec(self):
+        """
+        1,2 3 4
+        ┌→──────┐
+        │1 2 3 4│
+        └~──────┘
+        """
+        alpha = arr.S(1)
+        omega = arr.V([2, 3, 4])
+        catted = alpha.catenate(omega)
+        expected = arr.V([1, 2, 3, 4])
+        assert arr.match(catted, expected)
+
+    def test_cat_mat_scalar(self):
+        """
+        (2 2⍴1 2 3 4),0
+        ┌→────┐
+        ↓1 2 0│
+        │3 4 0│
+        └~────┘
+        """
+        alpha = arr.Array([2, 2], [1, 2, 3, 4])
+        omega = arr.S(0)
+        catted = alpha.catenate(omega)
+        expected = arr.Array([2, 3], [1, 2, 0, 3, 4, 0])
+        assert arr.match(catted, expected)
+
+    def test_cat_mat_mat(self):
+        """
+        (2 2⍴1 2 3 4),2 3⍴9
+        ┌→────────┐
+        ↓1 2 9 9 9│
+        │3 4 9 9 9│
+        └~────────┘
+        """
+        alpha = arr.Array([2, 2], [1, 2, 3, 4])
+        omega = arr.Array.fill([2, 3], [9])
+        catted = alpha.catenate(omega)
+        expected = arr.Array([2, 5], [1, 2, 9, 9, 9, 3, 4, 9, 9, 9])
+        assert arr.match(catted, expected)
+
+
 class TestTable:
     def test_table_scalar(self):
         s = arr.S(3)

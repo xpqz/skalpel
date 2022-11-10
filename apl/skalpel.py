@@ -704,6 +704,11 @@ def circle(alpha: int, omega: int|float|complex) -> float|complex:
 def ucs(o: Any) -> Any:
     return ord(o) if type(o) == str else chr(o)
 
+def conj(o: Any) -> Any:
+    if type(o) == complex:
+        return o.conjugate()
+    return o
+
 class Voc:
     """
     Voc is the global vocabulary of built-in arrays, functions and operators. This class should not
@@ -733,7 +738,7 @@ class Voc:
         '∊': (lambda o: o.enlist(),                   lambda a, o: o.contains(a)),
         '⊂': (enclose,                                None),
         '⊃': (lambda o: o.disclose(),                 lambda a, o: o.pick(a)),
-        ',': (ravel,                                  None),
+        ',': (ravel,                                  lambda a, o: a.catenate(o)),
         '⍉': (lambda o: o.transpose(),                lambda a, o: o.transpose(a.as_list())),
         '⍴': (lambda o: rho(None, o),                 rho),
         '⍳': (lambda o: o.index_gen(),                lambda a, o: a.index_of(o)),
@@ -744,10 +749,10 @@ class Voc:
         '⌊': (mpervade(math.floor),                   pervade(min)),
         '!': (mpervade(math.factorial),               None),
         '○': (mpervade(lambda o: o*math.pi),          pervade(circle)),
-        '+': (None,                                   pervade(operator.add)),
+        '+': (mpervade(conj),                         pervade(operator.add)),
         '-': (mpervade(operator.neg),                 pervade(operator.sub)),
         '×': (mpervade(lambda o:o/abs(o)),            pervade(operator.mul)),
-        '*': (None,                                   pervade(operator.pow)),
+        '*': (mpervade(math.exp),                     pervade(operator.pow)),
         '|': (mpervade(operator.abs),                 pervade(lambda a, o: o%a)),       # DYADIC NOTE ARG ORDER
         '=': (None,                                   pervade(lambda a, o: int(a==o))),
         '>': (None,                                   pervade(lambda a, o: int(a>o))),
