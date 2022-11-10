@@ -3,6 +3,7 @@ from math import prod
 import pytest
 
 import apl.arr as arr
+from apl.errors import RankError
 
 class TestIndexing:
     def test_simple(self):
@@ -335,6 +336,26 @@ class TestTake:
         expected = arr.Array([2, 3], [
             0, 1, 2,
             3, 4, 5
+        ])
+        assert arr.match(e, expected)
+
+    def test_matrix_overtake(self):
+        """
+        4↑3 3⍴⍳9
+        ┌→────┐
+        ↓0 1 2│
+        │3 4 5│
+        │6 7 8│
+        │0 0 0│
+        └~────┘
+        """
+        a = arr.Array([3, 3], list(range(9)))
+        e = a.take(arr.S(4))
+        expected = arr.Array([4, 3], [
+            0, 1, 2,
+            3, 4, 5,
+            6, 7, 8, 
+            0, 0, 0,
         ])
         assert arr.match(e, expected)
 
@@ -736,6 +757,74 @@ class TestContains:
         found = a.contains(b)
 
         assert arr.match(found, arr.V([1, 1, 0]))
+
+class TestIndexOf:
+    def test_index_of_rank_error(self):
+        """
+        3⍳1 2 3 4 5
+         ^
+        RANK ERROR
+        """
+        three = arr.S(3)
+        with pytest.raises(RankError):
+            three.index_of(arr.V([1, 2, 3, 4, 5]))
+
+    def test_index_of_scalar(self):
+        """
+        1 2 3 4 5⍳3
+ 
+        2
+        """
+        v = arr.V([1, 2, 3, 4, 5])
+        io = v.index_of(arr.S(3))
+        expected = arr.S(2)
+        assert arr.match(io, expected)
+
+    def test_index_of_non_present(self):
+        """
+        1 2 3 4 5⍳9
+ 
+        5
+        """
+        v = arr.V([1, 2, 3, 4, 5])
+        io = v.index_of(arr.S(9))
+        expected = arr.S(5)
+        assert arr.match(io, expected)
+
+    def test_index_of_vector_vector(self):
+        """
+        1 2 3 4 5⍳2 4
+        ┌→──┐
+        │1 3│
+        └~──┘
+        """
+        v = arr.V([1, 2, 3, 4, 5])
+        io = v.index_of(arr.V([2, 4]))
+        expected = arr.V([1, 3])
+        assert arr.match(io, expected)
+
+    def test_index_of_matrix(self):
+        """
+        (3 2⍴1 2 3 4 5 6)⍳5 6
+ 
+        2
+        """
+        m = arr.Array([3, 2], [1, 2, 3, 4, 5, 6])
+        io = m.index_of(arr.V([5, 6]))
+        expected = arr.S(2)
+        assert arr.match(io, expected)
+
+    def test_index_of_matrix_matrix(self):
+        """
+        (3 2⍴1 2 3 4 5 6)⍳2 2⍴3 4 5 6
+        ┌→──┐
+        │1 2│
+        └~──┘
+        """
+        m = arr.Array([3, 2], [1, 2, 3, 4, 5, 6])
+        io = m.index_of(arr.Array([2, 2], [3, 4, 5, 6]))
+        expected = arr.V([1, 2])
+        assert arr.match(io, expected)
 
 class TestReplicate:
     def test_scalar_replicate(self):

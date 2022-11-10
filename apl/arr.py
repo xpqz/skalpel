@@ -52,7 +52,13 @@ class Array:
         return self.data < other.data
 
     def issimple(self):
-        return self.shape == [] and len(self.data) == 1 and not isinstance(self.data[0], Array)
+        return self.isscalar() and len(self.data) == 1 and not isinstance(self.data[0], Array)
+
+    def issingleton(self):
+        return not self.isscalar() and all(a==1 for a in self.shape)
+
+    def isscalar(self):
+        return not self.shape
 
     def unbox(self) -> 'Array':
         if self.issimple():

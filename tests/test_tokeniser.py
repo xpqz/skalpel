@@ -177,3 +177,16 @@ class TestTokeniser:
         assert tokens[1].kind == TokenType.SINGLEQUOTE
         assert tokens[2].kind == TokenType.SCALAR
         assert tokens[3].kind == TokenType.SINGLEQUOTE
+
+    def test_assign(self):
+        src = 's←+⌿v'
+        tokeniser = Tokeniser(src)
+        tokens = tokeniser.lex()
+        assert [t.kind for t in tokens] == [
+            TokenType.EOF,
+            TokenType.NAME,
+            TokenType.GETS,
+            TokenType.FUN,
+            TokenType.OPERATOR,
+            TokenType.NAME
+        ]

@@ -1,6 +1,8 @@
+import operator
+
 import pytest
 
-from apl.errors import DomainError, RankError
+from apl.errors import DomainError, LengthError, RankError
 import apl.arr as arr
 from apl.parser import Parser
 from apl.skalpel import each, pervade, mpervade, reduce_first, run, TYPE, encode, decode, bool_not
@@ -17,32 +19,100 @@ def run_code(src):
 
 class TestPervade:
     def test_mat_plus_scalar(self):
-        plus = pervade(lambda x, y:x+y)
+        plus = pervade(operator.add)
         a = arr.Array([3, 2], [54, 7, 88, 4, 73, 3, 1])
         b = arr.S(12)
         result = plus(a, b)
         assert arr.match(result, arr.Array([3, 2], [66, 19, 100, 16, 85, 15]))
 
     def test_scalar_plus_mat(self):
-        plus = pervade(lambda x, y:x+y)
+        plus = pervade(operator.add)
         a = arr.Array([3, 2], [54, 7, 88, 4, 73, 3, 1])
         b = arr.S(12)
         result = plus(b, a)
         assert arr.match(result, arr.Array([3, 2], [66, 19, 100, 16, 85, 15]))
 
     def test_vec_plus_vec(self):
-        plus = pervade(lambda x, y:x+y)
+        plus = pervade(operator.add)
         a = arr.V([54, 7, 88, 4, 73, 3, 1])
         b = arr.V([12, 8, 11, 7, 21, 7, 9])
         result = plus(b, a)
         assert arr.match(result, arr.V([66, 15, 99, 11, 94, 10, 10]))
 
     def test_non_simple(self):
-        plus = pervade(lambda x, y:x+y)
+        plus = pervade(operator.add)
         a = arr.Array([3, 2], [54, 7, arr.Array([2, 2], [1, 1, 1, 1]), 4, 73, 3])
         b = arr.S(12)
         result = plus(b, a)
         expected = arr.Array([3, 2], [66, 19, arr.Array([2, 2], [13, 13, 13, 13]), 16, 85, 15])
+        assert arr.match(result, expected)
+
+    def test_nested_left_scalar_right(self):
+        """
+        (1 2 (3 4))1(2 3⍴1)+1
+        ┌→────────────────────────┐
+        │ ┌→──────────┐   ┌→────┐ │
+        │ │     ┌→──┐ │ 2 ↓2 2 2│ │
+        │ │ 2 3 │4 5│ │   │2 2 2│ │
+        │ │     └~──┘ │   └~────┘ │
+        │ └∊──────────┘           │
+        └∊────────────────────────┘
+        """
+        plus = pervade(operator.add)
+        alpha = arr.V([arr.V([1, 2, arr.V([3, 4])]), 1, arr.Array.fill([2, 3], [1])])
+        omega = arr.S(1)
+        result = plus(alpha, omega)
+        expected = arr.V([arr.V([2, 3, arr.V([4, 5])]), 2, arr.Array.fill([2, 3], [2])])
+        assert arr.match(result, expected)
+
+    def test_scalar_left_nested_right(self):
+        """
+        1+(1 2 (3 4))1(2 3⍴1)
+        ┌→────────────────────────┐
+        │ ┌→──────────┐   ┌→────┐ │
+        │ │     ┌→──┐ │ 2 ↓2 2 2│ │
+        │ │ 2 3 │4 5│ │   │2 2 2│ │
+        │ │     └~──┘ │   └~────┘ │
+        │ └∊──────────┘           │
+        └∊────────────────────────┘
+        """
+        plus = pervade(operator.add)
+        alpha = arr.S(1)
+        omega = arr.V([arr.V([1, 2, arr.V([3, 4])]), 1, arr.Array.fill([2, 3], [1])])
+        result = plus(alpha, omega)
+        expected = arr.V([arr.V([2, 3, arr.V([4, 5])]), 2, arr.Array.fill([2, 3], [2])])
+        assert arr.match(result, expected)
+
+    def test_right_enclosed_is_extended(self):
+        """
+        1 2 3+⊂100 200
+        ┌→──────────────────────────────┐
+        │ ┌→──────┐ ┌→──────┐ ┌→──────┐ │
+        │ │101 201│ │102 202│ │103 203│ │
+        │ └~──────┘ └~──────┘ └~──────┘ │
+        └∊──────────────────────────────┘
+        """
+        alpha = arr.V([1, 2, 3])
+        omega = arr.S(arr.V([100, 200]))
+        expected = arr.V([arr.V([101, 201]), arr.V([102, 202]), arr.V([103, 203])])
+        plus = pervade(operator.add)
+        result = plus(alpha, omega)
+        assert arr.match(result, expected)
+
+    def test_left_enclosed_is_extended(self):
+        """
+        (⊂100 200)+1 2 3
+        ┌→──────────────────────────────┐
+        │ ┌→──────┐ ┌→──────┐ ┌→──────┐ │
+        │ │101 201│ │102 202│ │103 203│ │
+        │ └~──────┘ └~──────┘ └~──────┘ │
+        └∊──────────────────────────────┘
+        """
+        alpha = arr.S(arr.V([100, 200]))
+        omega = arr.V([1, 2, 3])
+        expected = arr.V([arr.V([101, 201]), arr.V([102, 202]), arr.V([103, 203])])
+        plus = pervade(operator.add)
+        result = plus(alpha, omega)
         assert arr.match(result, expected)
 
     def test_monadic_pervade(self):
@@ -56,6 +126,57 @@ class TestPervade:
         result = negate(v)
         expected = arr.V([-4, arr.V([-1, -2, -3]), complex(-1, -2)])
         assert arr.match(result, expected)
+
+    def test_both_singletons(self):
+        """
+        (1 1⍴2)+1 1 1⍴3
+        ┌┌→┐
+        ↓↓5│
+        └└~┘
+        """
+        alpha = arr.Array([1, 1], [2])
+        omega = arr.Array([1, 1, 1], [3])
+        expected = arr.Array([1, 1, 1], [5])
+        plus = pervade(operator.add)
+        result = plus(alpha, omega)
+        assert arr.match(result, expected)
+
+    def test_left_singleton(self):
+        """
+        (1 1⍴2)+2 2⍴3
+        ┌→──┐
+        ↓5 5│
+        │5 5│
+        └~──┘
+        """
+        alpha = arr.Array([1, 1], [2])
+        omega = arr.Array([2, 2], [3, 3, 3, 3])
+        expected = arr.Array([2, 2], [5, 5, 5, 5])
+        plus = pervade(operator.add)
+        result = plus(alpha, omega)
+        assert arr.match(result, expected)
+
+    def test_right_singleton(self):
+        """
+        (2 2⍴3) + 1 1⍴2
+        ┌→──┐
+        ↓5 5│
+        │5 5│
+        └~──┘
+        """
+        alpha = arr.Array([2, 2], [3, 3, 3, 3])
+        omega = arr.Array([1, 1], [2])
+        expected = arr.Array([2, 2], [5, 5, 5, 5])
+        plus = pervade(operator.add)
+        result = plus(alpha, omega)
+        assert arr.match(result, expected)
+
+    def test_unequal_lengths_raises(self):
+        alpha = arr.V([3, 3, 3, 3])
+        omega = arr.V([1, 1])
+        plus = pervade(operator.add)
+        with pytest.raises(LengthError):
+            plus(alpha, omega)
 
 class TestReduce:
     def test_reduce_first(self):
@@ -346,7 +467,7 @@ class TestRun:
         assert arr.match(result.payload, arr.S(3))
 
     def test_diamond(self):
-        src = "v←⍳99 ⋄ s←+⌿v"
+        src = "v←⍳99⋄s←+⌿v"
         parser = Parser()
         ast = parser.parse(src)
         code = ast.emit()

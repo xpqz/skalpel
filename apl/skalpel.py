@@ -234,13 +234,26 @@ def pervade(f: Callable, direct: bool=False) -> Callable:
         Case 4: ....            # rank error
         """
 
-        # flat scalars
+        # True scalars
         if not isinstance(alpha, arr.Array): 
             if not isinstance(omega, arr.Array):
-                return f(alpha, omega) # both are flat
+                return f(alpha, omega) # both are simple (python non-arrays)
             return pervaded(arr.S(alpha), omega)
         elif not isinstance(omega, arr.Array):
             return pervaded(alpha, arr.S(omega))
+
+       # Singleton extension: https://aplwiki.com/wiki/Scalar_extension#Singleton_extension
+        if alpha.issingleton() and omega.issingleton():  # If both are singletons, extend lower rank.
+            if alpha.rank < omega.rank:
+                alpha = arr.S(alpha.data[0])
+            elif omega.rank < alpha.rank:
+                omega = arr.S(omega.data[0])
+        elif alpha.issingleton():
+            alpha = arr.S(alpha.data[0])
+        elif omega.issingleton():
+            omega = arr.S(omega.data[0])
+
+        # Non-simple scalar extension, e.g. 1 2 3+⊂100 200
 
         if not alpha.nested and not omega.nested:
             if alpha.shape == omega.shape:
@@ -261,11 +274,11 @@ def pervade(f: Callable, direct: bool=False) -> Callable:
             ]
             return arr.Array(alpha.shape, data)
 
-        if alpha.issimple():                                    # Case 1: left is scalar
-            return arr.Array(omega.shape, [pervaded(alpha, e) for e in omega.data])
+        if alpha.isscalar():                                    # Case 1: left is scalar
+            return arr.Array(omega.shape, [pervaded(alpha, e).unbox() for e in omega.data])
 
-        if omega.issimple():                                    # Case 2: right is scalar
-            return arr.Array(omega.shape, [pervaded(e, omega) for e in alpha.data])
+        if omega.isscalar():                                    # Case 2: right is scalar
+            return arr.Array(alpha.shape, [pervaded(e, omega).unbox() for e in alpha.data])
 
         if alpha.rank == omega.rank == 1:                       # Case 4a: unequal lengths
             raise LengthError("LENGTH ERROR: Mismatched left and right argument shapes")    
