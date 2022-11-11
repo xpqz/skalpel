@@ -810,7 +810,7 @@ def V(data: list|str) -> Array:
 def S(item: int|float|complex|Array|str) -> Array:
     return Array([], [item])
 
-def match(a: Any, w: Any, CT: float = 1e-14) -> bool:
+def match(a: Any, w: Any, CT: float = 1e-10) -> bool:
     if isinstance(a, Array) and isinstance(w, Array):
         return a.shape == w.shape and all(match(a.data[i], w.data[i]) for i in range(a.bound))
     elif type(a) == type(w) == int or type(a) == type(w) == str:
@@ -819,6 +819,10 @@ def match(a: Any, w: Any, CT: float = 1e-14) -> bool:
         return abs(a-w) <= CT
     elif isinstance(a, complex) and isinstance(w, complex):
         return abs(a.real-w.real) <= CT and abs(a.imag-w.imag) <= CT
+    elif isinstance(a, complex) and isinstance(w, (int, float)) and a.imag == 0.0:
+        return abs(a.real-w) <= CT
+    elif isinstance(a, (int, float)) and isinstance(w, complex) and w.imag == 0.0:
+        return abs(a-w.real) <= CT
     return False
 
 def encode(shape: list[int], idx: int) -> list[int]:

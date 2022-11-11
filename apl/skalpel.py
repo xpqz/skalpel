@@ -709,6 +709,25 @@ def conj(o: Any) -> Any:
         return o.conjugate()
     return o
 
+def recip(o: Any) -> Any:
+    if isinstance(o, (int, float, complex)):
+        return 1/o
+    raise DomainError('DOMAIN ERROR')
+
+def flr(o: Any) -> Any:
+    if type(o) == complex:
+        return complex(math.floor(o.real), math.floor(o.imag))
+    if isinstance(o, (int, float)):
+        return int(math.floor(o))
+    raise DomainError('DOMAIN ERROR')
+
+def ceiling(o: Any) -> Any:
+    if type(o) == complex:
+        return complex(math.ceil(o.real), math.ceil(o.imag))
+    if isinstance(o, (int, float)):
+        return math.ceil(o)
+    raise DomainError('DOMAIN ERROR')
+
 class Voc:
     """
     Voc is the global vocabulary of built-in arrays, functions and operators. This class should not
@@ -745,13 +764,14 @@ class Voc:
         '⍸': (lambda o: o.where(),                    None),
         '≢': (tally,                                  lambda x, y: arr.S(int(not arr.match(x, y)))),
         '≡': (lambda o: arr.S(arr.Array.depth(o)),    lambda x, y: arr.S(int(arr.match(x, y)))),
-        '⌈': (mpervade(math.ceil),                    pervade(max)),
-        '⌊': (mpervade(math.floor),                   pervade(min)),
+        '⌈': (mpervade(ceiling),                      pervade(max)),
+        '⌊': (mpervade(flr),                          pervade(min)),
         '!': (mpervade(math.factorial),               None),
         '○': (mpervade(lambda o: o*math.pi),          pervade(circle)),
         '+': (mpervade(conj),                         pervade(operator.add)),
         '-': (mpervade(operator.neg),                 pervade(operator.sub)),
         '×': (mpervade(lambda o:o/abs(o)),            pervade(operator.mul)),
+        '÷': (mpervade(recip),                        pervade(lambda a, o: a/o)),
         '*': (mpervade(math.exp),                     pervade(operator.pow)),
         '|': (mpervade(operator.abs),                 pervade(lambda a, o: o%a)),       # DYADIC NOTE ARG ORDER
         '=': (None,                                   pervade(lambda a, o: int(a==o))),
