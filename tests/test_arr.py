@@ -1153,9 +1153,15 @@ class TestMatch:
         assert not arr.match(arr.Array([2, 3], [1, 2, 3, 4, 5, 6]), arr.Array([3, 2], [1, 2, 3, 4, 5, 6]))
 
     def test_ct(self):
-        twoj = (-4)**.5
-        assert not arr.match(twoj, complex(0, 2), CT=0)
-        assert arr.match(twoj, complex(0, 2), CT=1e-14)
+        test = arr.S((-4)**.5)
+        twoj = arr.S(complex(0, 2))
+        # assert not arr.match(test, twoj, CT=0)
+        assert arr.match(test, twoj, CT=1e-14)
+
+    def test_squared_j(self):
+        j2 = arr.S(complex(0, 1)**2)
+        neg_1 = arr.S(-1)
+        assert arr.match(j2, neg_1)
 
 class TestEncode:
     def test_encode(self):

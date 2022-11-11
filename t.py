@@ -21,7 +21,7 @@ EXCEPTIONS = {
 }
 
 SKIP = { 
-    '⍟', '∞', '⍶', '⍹', '⍫', '»'
+    '⍟', '∞', '⍶', '⍹', '⍫', '»', '√'
 }
 
 def eval_apl(src: str) -> Array:
