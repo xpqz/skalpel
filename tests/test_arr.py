@@ -1134,6 +1134,29 @@ class TestIndexGen:
         e = arr.Array([2, 2], [arr.V([0, 0]), arr.V([0, 1]), arr.V([1, 0]), arr.V([1, 1])])
         assert arr.match(r, e)
 
+class TestMatch:
+    def test_scalars(self):
+        assert arr.match(arr.S(1), arr.S(1))
+        assert not arr.match(arr.S(1), arr.S(2))
+
+    def test_vectors(self):
+        assert arr.match(arr.V([1, 2, 3]), arr.V([1, 2, 3]))
+        assert not arr.match(arr.V([1, 2, 3]), arr.V([1, 2, 1]))
+
+    def test_nested(self):
+        assert arr.match(arr.V([1, arr.V([1, 2, complex(3, 4)]), 3]), arr.V([1, arr.V([1, 2, complex(3, 4)]), 3]))
+        assert not arr.match(arr.V([1, arr.V([1, 2, complex(3, 4)]), 3]), arr.V([1, arr.V([1, 2, complex(3, -4)]), 3]))
+
+    def test_matrix(self):
+        assert arr.match(arr.Array([2, 2], [1, 2, 3, 4]), arr.Array([2, 2], [1, 2, 3, 4]))
+        assert not arr.match(arr.Array([2, 2], [1, 2, 3, 4]), arr.Array([2, 2], [1, 2, 3, 5]))
+        assert not arr.match(arr.Array([2, 3], [1, 2, 3, 4, 5, 6]), arr.Array([3, 2], [1, 2, 3, 4, 5, 6]))
+
+    def test_ct(self):
+        twoj = (-4)**.5
+        assert not arr.match(twoj, complex(0, 2), CT=0)
+        assert arr.match(twoj, complex(0, 2), CT=1e-14)
+
 class TestEncode:
     def test_encode(self):
         b = arr.encode([2, 2, 2], 5)

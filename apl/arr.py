@@ -418,11 +418,11 @@ class Array:
         tally_a = len(a.data)
 
         s.extend([1 for _ in range(int(0==len(s))*tally_a)]) # Scalar rank extension
-        s = V(s).take(S(tally_a))                            # SHARP APL extension
+        sv = V(s).take(S(tally_a))                            # SHARP APL extension
 
         spec = [
             ss*(-1)**int(a.data[i]>0) + max(-ss, min(ss, a.data[i]))  # ((s×¯1*⍺>0) + (-s)⌈s⌊⍺)
-            for i, ss in enumerate(s.data)
+            for i, ss in enumerate(sv.data)
         ]
 
         return self.take(V(spec))
@@ -810,30 +810,16 @@ def V(data: list|str) -> Array:
 def S(item: int|float|complex|Array|str) -> Array:
     return Array([], [item])
 
-def match(a: 'Array', w: 'Array') -> bool:
-
-    if a.shape != w.shape:
-        return False
-
-    if not a.shape: # Simple scalar, or enclosed something
-        if isinstance(a.data[0], Array):
-            return match(a.data[0], w.data[0]) # type: ignore
-        else:
-            return a.data[0] == w.data[0]
-
-    for i in range(a.bound):
-        left = a.data[i]
-        right = w.data[i]
-        if not isinstance(left, Array):
-            if not isinstance(left, Array):
-                if left != right:
-                    return False
-            else:
-                return False
-        elif not match(left, right):
-            return False
-
-    return True
+def match(a: Any, w: Any, CT: float = 1e-14) -> bool:
+    if isinstance(a, Array) and isinstance(w, Array):
+        return a.shape == w.shape and all(match(a.data[i], w.data[i]) for i in range(a.bound))
+    elif type(a) == type(w) == int or type(a) == type(w) == str:
+        return a == w
+    elif isinstance(a, (int, float)) and isinstance(w, (int, float)):
+        return abs(a-w) <= CT
+    elif isinstance(a, complex) and isinstance(w, complex):
+        return abs(a.real-w.real) <= CT and abs(a.imag-w.imag) <= CT
+    return False
 
 def encode(shape: list[int], idx: int) -> list[int]:
     """
