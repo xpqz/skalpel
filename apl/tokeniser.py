@@ -148,7 +148,7 @@ class Tokeniser:
                 self.pos += 1
                 continue
 
-            if hd == '¯' or hd.isdigit():  # numeric scalar
+            if hd == '¯' or hd.isdigit() or hd == '.' and self.peek().isdigit():  # numeric scalar
                 tokens.append(self.getnum())
                 continue
 
