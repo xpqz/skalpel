@@ -1,15 +1,17 @@
+import cmath
+import itertools
+import math
+import operator
 from dataclasses import dataclass
 from enum import Enum
-import itertools
-import cmath, math
-import operator
 from string import ascii_letters
 from typing import Any, Callable, Optional, TypeAlias
 
 from bitarray import bitarray
 
 import apl.arr as arr
-from apl.errors import ArityError, DomainError, LengthError, NYIError, RankError
+from apl.errors import (ArityError, DomainError, LengthError, NYIError,
+                        RankError)
 from apl.stack import Stack
 
 Signature: TypeAlias = tuple[Optional[Callable], Optional[Callable]]
@@ -41,14 +43,31 @@ class Value:
 class Arity(Enum):
     MONAD=0
     DYAD=1
+    AMBIV=2
+
+class OperandType(Enum):
+    FUNCTION=0
+    ARRAY=1
+    ANY=2
+
+@dataclass(frozen=True)
+class Operand:
+    kind: OperandType
+    arity: Optional[Arity] = None
+
+# Operand types
+OP_DYAD  = Operand(OperandType.FUNCTION, Arity.DYAD)
+OP_MONAD = Operand(OperandType.FUNCTION, Arity.MONAD)
+OP_AMBIV = Operand(OperandType.FUNCTION, Arity.AMBIV)
+OP_ARRAY = Operand(OperandType.ARRAY)
 
 @dataclass(frozen=True)
 class Operator:
     f: Callable
-    derives: Arity                  # Arity of derived function
-    arity: Arity                    # Am I a monadic or a dyadic operator?
-    left: Arity                     # Arity of left operand
-    right: Optional[Arity] = None   # Arity of right operand, if I am dyadic
+    derives: Arity                    # Arity of derived function
+    arity: Arity                      # Am I a monadic or a dyadic operator?
+    left: Operand                     # Spec of left operand
+    right: Optional[Operand] = None   # Spec of right operand, if I am dyadic
 
 def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
     while ip < len(code):
@@ -374,6 +393,137 @@ def reduce_first(left: str|list[tuple], right: Optional[Any], alpha: Optional[ar
     fun = _make_operand(left, Arity.DYAD, env, stack)
 
     return omega.foldr(operand=fun, axis=0)
+
+# def rank(left: str|list[tuple], right: arr.Array, alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
+#     """
+#     Rank - dyadic operator ⍤ deriving ambivalent
+
+#     https://aplwiki.com/wiki/Rank_(operator)
+#     https://help.dyalog.com/latest/index.htm#Language/Primitive%20Operators/Rank.htm
+#     https://xpqz.github.io/learnapl/rank.html
+#     https://xpqz.github.io/cultivations/Rank.html
+#     https://dl.acm.org/doi/pdf/10.1145/55626.55632
+
+#     Note that the right operand is always an integer scalar or vector of two elements, 
+#     not a function. The tree-element version is nyi.
+#     """
+#     if right.rank > 1:
+#         raise RankError('RANK ERROR')
+
+#     if right.bound > 2:
+#         raise NYIError('NYIError: right operand can only be length 1 or 2')
+
+#     arity = Arity.DYAD if alpha else Arity.MONAD
+#     fun = _make_operand(left, arity, env, stack)
+
+#     # Deriving monad
+#     if arity == Arity.MONAD:
+#         # If right is zero or positive it selects k-cells of the corresponding 
+#         # argument. If it is negative, it selects (r+right)-cells where r is the  
+#         # rank of the corresponding argument. A value of ¯1 selects major cells.
+#         selector = right.data[0]
+#         if selector < 0:
+#             selector = omega.rank - selector
+#         if selector > omega.rank:
+#             selector = omega.rank
+
+#         shape = omega.shape[:-selector]
+
+#         return arr.Array(shape, [fun(cell).disclose() for cell in omega.kcells(selector)])
+
+#     # Deriving dyad
+#     assert alpha
+#     l_selector = right.data[0]
+#     if l_selector < 0:
+#         l_selector = alpha.rank - l_selector
+#     if l_selector > alpha.rank:
+#         l_selector = alpha.rank
+
+#     try:
+#         r_selector = right.data[1]
+#     except IndexError:
+#         r_selector = right.data[0]
+
+#     if r_selector < 0:
+#         r_selector = omega.rank - r_selector
+#     if r_selector > omega.rank:
+#         r_selector = omega.rank
+
+#     result = []
+#     for cell_a, cell_w in zip(alpha.kcells(l_selector), omega.kcells(r_selector)):
+#         val = fun(cell_a, cell_w)
+#         result.append(val)
+
+#     if any(r.shape != result[0].shape for r in result):
+#         raise LengthError("LENGTH ERROR")
+
+#     shape = [len(result)]+result[0].shape[:]
+#     return arr.Array(shape, list(itertools.chain(*(r.data for r in result))))
+
+def rank(left: str|list[tuple], right: arr.Array, alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
+    """
+    Rank - dyadic operator ⍤ deriving ambivalent
+
+    https://aplwiki.com/wiki/Rank_(operator)
+    https://help.dyalog.com/latest/index.htm#Language/Primitive%20Operators/Rank.htm
+    https://xpqz.github.io/learnapl/rank.html
+    https://xpqz.github.io/cultivations/Rank.html
+    https://dl.acm.org/doi/pdf/10.1145/55626.55632
+
+    Note that the right operand is always an integer scalar or vector of two elements, 
+    not a function. The tree-element version is nyi.
+    """
+    if right.rank > 1:
+        raise RankError('RANK ERROR')
+
+    if right.bound > 2:
+        raise NYIError('NYIError: right operand can only be length 1 or 2')
+
+    arity = Arity.DYAD if alpha else Arity.MONAD
+    fun = _make_operand(left, arity, env, stack)
+
+    # Deriving monad
+    if arity == Arity.MONAD:
+        # If right is zero or positive it selects k-cells of the corresponding 
+        # argument. If it is negative, it selects (r+right)-cells where r is the  
+        # rank of the corresponding argument. A value of ¯1 selects major cells.
+        selector = right.data[0]
+        if selector < 0:
+            selector = omega.rank - selector
+        if selector > omega.rank:
+            selector = omega.rank
+
+        shape = omega.shape[:-selector]
+
+        return arr.Array(shape, [fun(cell).disclose() for cell in omega.kcells(selector)])
+
+    # Deriving dyad
+    assert alpha
+    l_selector = right.data[0]
+    if l_selector < 0:
+        l_selector = alpha.rank - l_selector
+    if l_selector > alpha.rank:
+        l_selector = alpha.rank
+
+    try:
+        r_selector = right.data[1]
+    except IndexError:
+        r_selector = right.data[0]
+
+    if r_selector < 0:
+        r_selector = omega.rank - r_selector
+    if r_selector > omega.rank:
+        r_selector = omega.rank
+
+    acells = alpha.kcells_array(l_selector)
+    wcells = omega.kcells_array(r_selector)
+
+    if acells.bound == 1 and not acells.issimple():   # Extend left
+        acells = acells.reshape(wcells.shape)
+    elif wcells.bound == 1 and not wcells.issimple(): # Extend right
+        wcells = wcells.reshape(acells.shape)
+
+    return fun(acells, wcells).mix()
 
 def decode(alpha: arr.Array, omega: arr.Array) -> arr.Array:
     """
@@ -783,13 +933,24 @@ class Voc:
         '⎕UCS': (mpervade(ucs),                       None),
     }
 
+    # ops: dict[str, Operator] = {
+    #     #-------------Implem--------Derived-isa--Self-isa-----L-oper-isa---R-oper-isa
+    #     '/': Operator(reduce,       Arity.MONAD, Arity.MONAD, Arity.DYAD,  None),
+    #     '⌿': Operator(reduce_first, Arity.MONAD, Arity.MONAD, Arity.DYAD,  None),
+    #     '¨': Operator(each,         Arity.MONAD, Arity.MONAD, Arity.MONAD, None),
+    #     '⍨': Operator(commute,      Arity.DYAD,  Arity.MONAD, Arity.DYAD,  None),
+    #     '⍥': Operator(over,         Arity.DYAD,  Arity.DYAD,  Arity.DYAD,  Arity.MONAD),
+    #     '⍤': Operator(rank,         Arity.AMBIV, Arity.DYAD,  Arity.AMBIV, Arity.MONAD)
+    # }
+
     ops: dict[str, Operator] = {
-        #-------------Implem--------Derived-isa--Self-isa-----L-oper-isa---R-oper-isa
-        '/': Operator(reduce,       Arity.MONAD, Arity.MONAD, Arity.DYAD,  None),
-        '⌿': Operator(reduce_first, Arity.MONAD, Arity.MONAD, Arity.DYAD,  None),
-        '¨': Operator(each,         Arity.MONAD, Arity.MONAD, Arity.MONAD, None),
-        '⍨': Operator(commute,      Arity.DYAD,  Arity.MONAD, Arity.DYAD,  None),
-        '⍥': Operator(over,         Arity.DYAD,  Arity.DYAD,  Arity.DYAD,  Arity.MONAD)
+        #-------------Implem--------Derived-isa--Self-isa-----L-oper-isa--R-oper-isa
+        '/': Operator(reduce,       Arity.MONAD, Arity.MONAD, OP_DYAD,    None),
+        '⌿': Operator(reduce_first, Arity.MONAD, Arity.MONAD, OP_DYAD,    None),
+        '¨': Operator(each,         Arity.MONAD, Arity.MONAD, OP_MONAD,   None),
+        '⍨': Operator(commute,      Arity.DYAD,  Arity.MONAD, OP_DYAD,    None),
+        '⍥': Operator(over,         Arity.DYAD,  Arity.DYAD,  OP_DYAD,    OP_MONAD),
+        '⍤': Operator(rank,         Arity.AMBIV, Arity.DYAD,  OP_AMBIV,   OP_ARRAY)
     }
 
     @classmethod

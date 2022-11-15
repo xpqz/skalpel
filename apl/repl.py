@@ -21,6 +21,7 @@ def main():
     print(f'Welcome to skalpel "APL". (c) 2022 xpqz, MIT LICENSE. C-d to quit')
     while True:
         compile_only = False
+        parse_only = False
         style = 'apl'
         try:
             src = session.prompt('skalpel> ', lexer=PygmentsLexer(APLLexer))
@@ -42,6 +43,10 @@ def main():
             compile_only = True
             src = m.group(1)
 
+        if m := re.match(r'^\s*\]parse\s+(.*)$', src):
+            parse_only = True
+            src = m.group(1)
+
         if m := re.match(r'^\s*\]py\s+(.*)$', src):
             style = 'python'
             src = m.group(1)
@@ -55,11 +60,17 @@ def main():
             ast = parser.parse(src)
             if ast is None: # Whitespace or comments only
                 continue
+
+            if parse_only:
+                print(ast)
+                parse_only = False
+                continue
+
             code = ast.emit()
         except Exception as inst:
             print(inst) # Syntactic errors
             continue
-
+        
         if compile_only:
             for i in code:
                 instr = str(i[0])[6:].upper()

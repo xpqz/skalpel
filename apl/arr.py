@@ -218,12 +218,19 @@ class Array:
     def kcells(self, k: int) -> Generator:
         """
         Generator. Yield cells, dropping the first rank-k axes.
+
+        https://help.dyalog.com/latest/Content/Language/Introduction/Variables/Cells%20and%20Subarrays.htm
+
+        Note: this is a generator that loops over the kcells as a list. This is 
+        not always what you want, as the kcells _set_ actually has a shape; see `rsh` below
         """
         if k > self.rank:
-            raise RankError
+            raise RankError('RANK ERROR: kcells must be less than or equal to rank')
 
         if k == self.rank:
-            return Array([], self.data[:])
+            yield self
+            return
+            # return Array([], self.data[:])
 
         # Shape and bound of result
         rsh = self.shape[:self.rank-k]
@@ -235,9 +242,33 @@ class Array:
         for cell in range(rbnd):
             yield Array(csh, self.data[cell*cbnd:(cell+1)*cbnd])
 
+    def kcells_array(self, k: int) -> 'Array':
+        """
+        Drop the first rank-k axes, return as array
+
+        https://help.dyalog.com/latest/Content/Language/Introduction/Variables/Cells%20and%20Subarrays.htm
+
+        """
+        if k > self.rank or k < 0:
+            raise RankError('RANK ERROR: kcells must be less than or equal to rank and greater than or equal to zero')
+
+        if k == self.rank:
+            return Array([], [deepcopy(self)])
+
+        # Shape and bound of result
+        rsh = self.shape[:self.rank-k]
+        rbnd = math.prod(rsh)
+
+        # Shape and bound of each cell
+        csh = self.shape[self.rank-k:]
+        cbnd = math.prod(csh)
+        return Array(rsh, [Array(csh, self.data[cell*cbnd:(cell+1)*cbnd]) for cell in range(rbnd)])
+
     def major_cells(self) -> Generator:
         """
         Generator. An array's major cells are the cells along the leading axis.
+
+        https://help.dyalog.com/latest/Content/Language/Introduction/Variables/Cells%20and%20Subarrays.htm
         """
         if not self.shape:
             return self
@@ -249,6 +280,8 @@ class Array:
     def major_cell(self, idx: int) -> 'Array':
         """
         Return the major cell with index idx
+
+        https://help.dyalog.com/latest/Content/Language/Introduction/Variables/Cells%20and%20Subarrays.htm
         """
         if not self.shape:
             return self
@@ -618,7 +651,6 @@ class Array:
             alpha = Array.fill([1]+omega.shape[1:], self.data)
         else:
             alpha = self
-
 
         if alpha.rank > omega.rank:
             omega = omega.reshape([1]+omega.shape)

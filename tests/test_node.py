@@ -55,6 +55,37 @@ class TestNode:
             INSTR.dya
         ]
 
+    def test_monadic_rank(self):
+        instr = compile("(⊂⍤1)2 3⍴1 2 3 4 5 6")
+        assert instr == [
+            INSTR.push, # 6
+            INSTR.push, # 5
+            INSTR.push, # 4
+            INSTR.push, # 3
+            INSTR.push, # 2
+            INSTR.push, # 1
+            INSTR.vec,  # make vector ↑
+            INSTR.push, # 3
+            INSTR.push, # 2
+            INSTR.vec,  # make vector ↑
+            INSTR.dya,  # call ⍴
+            INSTR.push, # 1
+            INSTR.fun,  # push ⊂
+            INSTR.mon,  # call ⊂⍤1
+        ]
+
+    def test_array_right_operand(self):
+        instr = compile('a (+⍤1 1) b')
+        assert instr == [
+            INSTR.get,  # fetch b
+            INSTR.get,  # fetch a
+            INSTR.push, # 1
+            INSTR.push, # 1
+            INSTR.vec,  # make vector ↑
+            INSTR.fun,  # +
+            INSTR.dya,  # call +⍤1 1
+        ]
+
     def test_dfn_call(self):
         instr = compile('1 {⍺+⍵} 2')
         assert instr == [
@@ -67,7 +98,6 @@ class TestNode:
             INSTR.push, INSTR.push, INSTR.push, INSTR.push, INSTR.vec, INSTR.dfn, INSTR.get, INSTR.get, INSTR.dya, INSTR.mon
         ]
     
-
     def test_gets_dfn(self):
         instr = compile('A←{⍺+⍵}')
         assert instr == [
