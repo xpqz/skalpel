@@ -32,6 +32,10 @@ class TestParser:
     def test_mop_deriving_dyad(self):
         assert parse("1 +⍨ 2") == "CHNK[DYADIC(MOP('⍨', FUN(+)), SCALAR(1), SCALAR(2))]"
 
+    def test_rank_operator(self):
+        ast = parse("a (+⍤1 0) b")
+        print()
+
     def test_gets(self):
         assert parse("var←99") == "CHNK[GETS(ID('var'), SCALAR(99))]"
 

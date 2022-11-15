@@ -5,7 +5,7 @@ import pytest
 from apl.errors import DomainError, LengthError, RankError
 import apl.arr as arr
 from apl.parser import Parser
-from apl.skalpel import each, pervade, mpervade, reduce_first, run, TYPE, encode, decode, bool_not
+from apl.skalpel import each, pervade, mpervade, reduce_first, run, TYPE, encode, decode, bool_not, rank
 from apl.stack import Stack
 
 def run_code(src):
@@ -177,6 +177,108 @@ class TestPervade:
         plus = pervade(operator.add)
         with pytest.raises(LengthError):
             plus(alpha, omega)
+
+class TestRank:
+    def test_rank_derives_monad(self):
+
+        omega = arr.Array([2, 3, 4], [
+            36, 99, 20,  5,
+            63, 50, 26, 10,
+            64, 90, 68, 98,
+
+            66, 72, 27, 74,
+            44,  1, 46, 62,
+            48,  9, 81, 22,
+        ])
+
+        matrices = rank('⊂', arr.S(2), None, omega, {}, Stack())
+
+        expected_m = arr.V([
+            arr.Array([3, 4], [36, 99, 20, 5, 63, 50, 26, 10, 64, 90, 68, 98]),
+            arr.Array([3, 4], [66, 72, 27, 74, 44, 1, 46, 62, 48, 9, 81, 22])
+        ])
+
+        assert arr.match(matrices, expected_m)
+
+        rows = rank('⊂', arr.S(1), None, omega, {}, Stack())
+
+        expected_r = arr.Array([2, 3], [
+            arr.V([36, 99, 20, 5]), arr.V([63, 50, 26, 10]), arr.V([64, 90, 68, 98]),
+            arr.V([66, 72, 27, 74]), arr.V([44,  1, 46, 62]), arr.V([48,  9, 81, 22]),
+        ])
+
+        assert arr.match(rows, expected_r)
+
+    def test_rank_derives_dyad_1_0(self):
+
+        alpha = arr.Array([2, 2], [
+            1, 2,
+            3, 4
+        ])
+
+        omega = arr.V([9, 5])
+        rowsum = rank('+', arr.V([1, 0]), alpha, omega, {}, Stack())
+
+        expected = arr.Array([2, 2], [
+            10, 11,
+            8, 9
+        ])
+
+        assert arr.match(rowsum, expected)
+
+    def test_rank_derives_dyad_1_1(self):
+        """
+        (2 2⍴1 2 3 4)+⍤1 1⊢5 9
+        ┌→───┐
+        ↓6 11│
+        │8 13│
+        └~───┘
+        """
+        alpha = arr.Array([2, 2], [
+            1, 2,
+            3, 4
+        ])
+
+        omega = arr.V([5, 9])
+        rowsum = rank('+', arr.V([1, 1]), alpha, omega, {}, Stack())
+
+        expected = arr.Array([2, 2], [
+            6, 11,
+            8, 13
+        ])
+
+        assert arr.match(rowsum, expected)
+
+    def test_rank_hirank(self):
+        """
+        9 5 (+⍤1 0) 2 3⍴1 2 3 4 5 6
+        ┌┌→────┐
+        ↓↓10  6│
+        ││11  7│
+        ││12  8│
+        ││     │
+        ││13  9│
+        ││14 10│
+        ││15 11│
+        └└~────┘
+        """
+        alpha = arr.V([9, 5])
+        omega = arr.Array([2, 3], [
+            1, 2, 3,
+            4, 5, 6,
+        ])
+        sums = rank('+', arr.V([1, 0]), alpha, omega, {}, Stack())
+        expected = arr.Array([2, 3, 2], [
+            10, 6, 
+            11, 7, 
+            12, 8, 
+            
+            13, 9, 
+            14, 10, 
+            15, 11
+        ])
+
+        assert arr.match(sums, expected)
 
 class TestReduce:
     def test_reduce_first(self):
@@ -573,6 +675,11 @@ class TestOperator:
         src = "1 2 3 {⍺⌊⍵}⍥{≢⍵} 1 2 3 4"
         result = run_code(src)
         assert arr.match(result.payload, arr.S(3))
+
+    def test_rank_vector_operand(self):
+        src = "(2 2⍴1 2 3 4)(+⍤1 1)9 5"
+        result = run_code(src)
+        assert arr.match(result.payload, arr.Array([2, 2], [10, 7, 12, 9]))
 
 class TestIndexing:
     def test_indexed_gets1(self):

@@ -26,11 +26,8 @@ class Parser:
 
     chunk      ::= EOF statements
     statements ::= (statement DIAMOND)* statement
-
     statement  ::= ( ID ('[' statement ']')? GETS | vector function | function )* vector?
-
-
-    function   ::= function MOP | function DOP f | f
+    function   ::= function MOP | function DOP function | f
     f          ::= FUN | LPAREN function RPAREN | dfn | fref
     dfn        ::= LBRACE statements RBRACE
     vector     ::= vector* ( scalar | ( LPAREN statement RPAREN ) ) ('[' statement ']')?
@@ -102,7 +99,7 @@ class Parser:
         else:
             node = None
 
-        while (kind := self.token().kind) in [TokenType.FUN, TokenType.OPERATOR, TokenType.GETS, TokenType.RBRACE, TokenType.FNAME]:
+        while (kind := self.token().kind) in [TokenType.FUN, TokenType.OPERATOR, TokenType.GETS, TokenType.RBRACE, TokenType.FNAME, TokenType.RPAREN]:
             if kind == TokenType.GETS:
                 gets = self.expect_token(TokenType.GETS)
                 if node is None: 
@@ -174,6 +171,9 @@ class Parser:
         if tok == TokenType.FNAME:
             return Node(NodeType.FREF, self.expect_token(TokenType.FNAME))
 
+        if tok == TokenType.SCALAR:
+            return self.parse_vector()
+            
         raise SyntaxError("SYNTAX ERROR: expected a function")
 
     def parse_dfn(self) -> Node:
@@ -196,10 +196,19 @@ class Parser:
         return Node(NodeType.CHARVEC, None, list(reversed(chvec)))
 
     def parse_vector(self) -> Node:
+        """
+        Stranding complicates things.
+
+        (1 2 3) 4 5 6 7 8    ⍝ Bracketed expression forms part of vector
+        (+@1 2 3) 4 5 6 7 8  ⍝ Bracketed expression is a derived function
+
+        """
         nodes = []
         idx = None
         while (kind := self.token().kind) in SCALARS + [TokenType.RPAREN, TokenType.RBRACKET, TokenType.SINGLEQUOTE]:
             if kind == TokenType.RPAREN:
+                if self.peek_beyond([TokenType.RPAREN, TokenType.LPAREN, TokenType.RBRACKET, TokenType.SINGLEQUOTE, TokenType.LBRACKET]+SCALARS).tok in DYADIC_OPS:
+                    break
                 if self.peek_beyond([TokenType.RPAREN]).kind in SCALARS + [TokenType.SINGLEQUOTE]:
                     self.expect_token(TokenType.RPAREN)
                     nodes.append(self.parse_statement())

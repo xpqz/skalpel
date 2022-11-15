@@ -3,7 +3,7 @@ from typing import Optional, TypeAlias
 
 from apl.errors import ArityError, EmitError
 from apl.tokeniser import Token
-from apl.skalpel import Arity, INSTR, Voc
+from apl.skalpel import Arity, INSTR, OperandType, Voc
 
 class NodeType(Enum):
     GETS = auto()
@@ -119,59 +119,44 @@ class Node:
             raise EmitError('EMIT ERROR: main_token is undefined')
         Node.code.append((INSTR.get, self.main_token.tok))
 
-    def derived_monad(self) -> str: # op deriving monad
+    def derived_monad(self) -> str:
+        return self._derived({Arity.MONAD, Arity.AMBIV})
+
+    def derived_dyad(self) -> str:
+        return self._derived({Arity.DYAD, Arity.AMBIV})
+
+    def _derived(self, arities: set[Arity]) -> str: 
         op_name = self._mttok()
         op = Voc.get_op(op_name)
 
         if not self.children:
             raise EmitError('EMIT ERROR: node has no children')
-    
-        if op.derives != Arity.MONAD:
-            raise ArityError(f"ARITY ERROR: operator '{op_name}' does not derive a monadic function")
+
+        if op.derives not in arities:
+            raise ArityError(f"ARITY ERROR: operator '{op_name}' does not derive function of the expected arity")
 
         if self.kind == NodeType.DOP:
-            if op.right == Arity.MONAD:
-                right = self.children[1].monadic_function()
+            assert op.right
+            if op.right.kind == OperandType.ARRAY:
+                self.children[1].emit()
             else:
-                right = self.children[1].dyadic_function()        
-            Node.code.append((INSTR.fun, right))
+                if op.right.arity == Arity.MONAD:
+                    right = self.children[1].monadic_function()
+                else:
+                    right = self.children[1].dyadic_function()
+                if right:        
+                    Node.code.append((INSTR.fun, right))
 
-        if op.left == Arity.MONAD:
-            left = self.children[0].monadic_function()
+        if op.left.kind == OperandType.ARRAY:
+            self.children[0].emit()
         else:
-            left = self.children[0].dyadic_function()
-
-        if left: # Note: for in-line dfns we already have the dfn on the stack
-            Node.code.append((INSTR.fun, left))
-
-        return op_name
-
-    def derived_dyad(self) -> str: # op deriving dyad
-        op_name = self._mttok()
-        if not self.children:
-            raise EmitError('EMIT ERROR: node has no children')
-
-        op = Voc.get_op(op_name)
-
-        if op.derives != Arity.DYAD:
-            raise ArityError(f"ARITY ERROR: operator '{op_name}' does not derive a dyadic function")
-
-        if self.kind == NodeType.DOP:
-            if op.right == Arity.MONAD:
-                right = self.children[1].monadic_function()
+            if op.left.arity == Arity.MONAD:
+                left = self.children[0].monadic_function()
             else:
-                right = self.children[1].dyadic_function()
-    
-            if right:
-                Node.code.append((INSTR.fun, right))
+                left = self.children[0].dyadic_function()
 
-        if op.left == Arity.MONAD:
-            left = self.children[0].monadic_function()
-        else:
-            left = self.children[0].dyadic_function()
-    
-        if left: # Note: for in-line dfns we already have the dfn on the stack
-            Node.code.append((INSTR.fun, left))
+            if left:  # Note: for in-line dfns we already have the dfn on the stack
+                Node.code.append((INSTR.fun, left))
 
         return op_name
 
@@ -197,9 +182,6 @@ class Node:
         if not self.children:
             raise EmitError('EMIT ERROR: node has no children')
         assert self.children[0].kind in CALLABLE
-        
-        # self.children[1].emit()
-        # self.children[2].emit()
 
         self.children[2].emit() # omega first
         self.children[1].emit()

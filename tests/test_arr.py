@@ -128,12 +128,7 @@ class TestPick:
         picked = a.pick(arr.S(arr.V([1, 0])))
         expected = arr.S('c')
         assert arr.match(picked, expected)
-
-# 2⊃'pick' ←→ 'c'
-# (⊂1 0)⊃2 2⍴'abcd' ←→ 'c'
-# 1⊃'foo' 'bar' ←→ 'bar'
-# # 1 2⊃'foo' 'bar' ←→ 'r'
-
+        
 class TestKCells:
     def test_0_cells(self):
         shape = [3, 4, 5]
