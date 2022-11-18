@@ -1,9 +1,9 @@
 import cmath
+from dataclasses import dataclass
+from enum import auto, Enum, Flag
 import itertools
 import math
 import operator
-from dataclasses import dataclass
-from enum import Enum
 from string import ascii_letters
 from typing import Any, Callable, Optional, TypeAlias
 
@@ -45,29 +45,18 @@ class Arity(Enum):
     DYAD=1
     AMBIV=2
 
-class OperandType(Enum):
-    FUNCTION=0
-    ARRAY=1
-    ANY=2
-
-@dataclass(frozen=True)
-class Operand:
-    kind: OperandType
-    arity: Optional[Arity] = None
-
-# Operand types
-OP_DYAD  = Operand(OperandType.FUNCTION, Arity.DYAD)
-OP_MONAD = Operand(OperandType.FUNCTION, Arity.MONAD)
-OP_AMBIV = Operand(OperandType.FUNCTION, Arity.AMBIV)
-OP_ARRAY = Operand(OperandType.ARRAY)
+class OperandType(Flag):
+    ARRAY = auto()
+    MONAD = auto()
+    DYAD = auto()
 
 @dataclass(frozen=True)
 class Operator:
     f: Callable
-    derives: Arity                    # Arity of derived function
-    arity: Arity                      # Am I a monadic or a dyadic operator?
-    left: Operand                     # Spec of left operand
-    right: Optional[Operand] = None   # Spec of right operand, if I am dyadic
+    derives: Arity                        # Arity of derived function
+    arity: Arity                          # Am I a monadic or a dyadic operator?
+    left: OperandType                     # Spec of left operand
+    right: Optional[OperandType] = None   # Spec of right operand, if I am dyadic
 
 def run(code:list[tuple], env:dict[str, Value], ip:int, stack:Stack) -> None:
     while ip < len(code):
@@ -353,10 +342,15 @@ def each(left: str|list[tuple], right: Optional[str], alpha: Optional[Any],  ome
     Each ¨ - monadic operator deriving monad
     """
     if right is not None:
-        raise ArityError("'¨' takes no right operand")
+        raise ArityError("operator '¨' takes no right operand")
+
+    if left is None:
+        raise ArityError("operator '¨' needs a left operand")
 
     if alpha is not None:
         raise ArityError("function derived by '¨' takes no left argument")
+
+    assert isinstance(omega, arr.Array)
 
     fun = _make_operand(left, Arity.MONAD, env, stack)
 
@@ -394,71 +388,75 @@ def reduce_first(left: str|list[tuple], right: Optional[Any], alpha: Optional[ar
 
     return omega.foldr(operand=fun, axis=0)
 
-# def rank(left: str|list[tuple], right: arr.Array, alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
-#     """
-#     Rank - dyadic operator ⍤ deriving ambivalent
+def power(left: str|list[tuple], right: str|list[tuple]|arr.Array, alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
+    """
+    Power - dyadic operator ⍣ deriving monad. If an alpha is given, it's implicitly bound to 
+    the left operand function, so that
 
-#     https://aplwiki.com/wiki/Rank_(operator)
-#     https://help.dyalog.com/latest/index.htm#Language/Primitive%20Operators/Rank.htm
-#     https://xpqz.github.io/learnapl/rank.html
-#     https://xpqz.github.io/cultivations/Rank.html
-#     https://dl.acm.org/doi/pdf/10.1145/55626.55632
+        ⍺ L⍣R ⍵
+        
+    is equivalent to 
+    
+        ⍺∘L⍣R ⍵
 
-#     Note that the right operand is always an integer scalar or vector of two elements, 
-#     not a function. The tree-element version is nyi.
-#     """
-#     if right.rank > 1:
-#         raise RankError('RANK ERROR')
+    If R is an integer scalar, it's an iteration count.
 
-#     if right.bound > 2:
-#         raise NYIError('NYIError: right operand can only be length 1 or 2')
+    APL Wiki: https://aplwiki.com/wiki/Power_(operator)
 
-#     arity = Arity.DYAD if alpha else Arity.MONAD
-#     fun = _make_operand(left, arity, env, stack)
+        Power X(f⍣g)Y repeatedly applies f to Y based on the type of operand g:
 
-#     # Deriving monad
-#     if arity == Arity.MONAD:
-#         # If right is zero or positive it selects k-cells of the corresponding 
-#         # argument. If it is negative, it selects (r+right)-cells where r is the  
-#         # rank of the corresponding argument. A value of ¯1 selects major cells.
-#         selector = right.data[0]
-#         if selector < 0:
-#             selector = omega.rank - selector
-#         if selector > omega.rank:
-#             selector = omega.rank
+        * Function: Must be dyadic and must return a boolean singleton. The 
+          previous iteration value is provided as the right argument to f, 
+          and the current iteration value is given as the left argument. f 
+          is repeatedly applied until this function returns 1.
 
-#         shape = omega.shape[:-selector]
+        * Integer: Applies f g times to Y. If g is negative, then the inverse 
+          of f (if available) is applied.
 
-#         return arr.Array(shape, [fun(cell).disclose() for cell in omega.kcells(selector)])
+        
+    https://help.dyalog.com/latest/index.htm#Language/Primitive%20Operators/Power%20Operator.htm
+    https://xpqz.github.io/learnapl/iteration.html#power
+    https://xpqz.github.io/cultivations/Power1.html
+    https://xpqz.github.io/cultivations/Power2.html
+    https://wiki.nars2000.org/index.php?title=Power
+    """
 
-#     # Deriving dyad
-#     assert alpha
-#     l_selector = right.data[0]
-#     if l_selector < 0:
-#         l_selector = alpha.rank - l_selector
-#     if l_selector > alpha.rank:
-#         l_selector = alpha.rank
+    left_fun = _make_operand(left, Arity.DYAD, env, stack) if alpha else _make_operand(left, Arity.MONAD, env, stack)
 
-#     try:
-#         r_selector = right.data[1]
-#     except IndexError:
-#         r_selector = right.data[0]
+    if isinstance(right, arr.Array):
+        if not right.issimple():
+            raise RankError('RANK ERROR')
 
-#     if r_selector < 0:
-#         r_selector = omega.rank - r_selector
-#     if r_selector > omega.rank:
-#         r_selector = omega.rank
+        count = right.data[0]
 
-#     result = []
-#     for cell_a, cell_w in zip(alpha.kcells(l_selector), omega.kcells(r_selector)):
-#         val = fun(cell_a, cell_w)
-#         result.append(val)
+        if type(count) != int:
+            raise DomainError('DOMAIN ERROR')
+        if count == -1:
+            raise NYIError('NYI ERROR: inverses not implemented')
+        if count < 0:
+            raise DomainError('DOMAIN ERROR')
 
-#     if any(r.shape != result[0].shape for r in result):
-#         raise LengthError("LENGTH ERROR")
+        current = omega
+        while count:
+            current = left_fun(alpha, current) if alpha else left_fun(current)
+            count -= 1
 
-#     shape = [len(result)]+result[0].shape[:]
-#     return arr.Array(shape, list(itertools.chain(*(r.data for r in result))))
+        return current
+
+    # Right operand is a function
+    right_fun = _make_operand(right, Arity.DYAD, env, stack)
+    pre = omega
+    post = left_fun(alpha, pre) if alpha else left_fun(pre)
+    while True:
+        done = right_fun(post, pre)
+        if not done.issimple() or done.issimple() and done.data[0] not in {0, 1}:
+            raise DomainError('DOMAIN ERROR: right operand must return Boolean')
+        if done.data[0] == 1:
+            break
+        pre = post
+        post = left_fun(alpha, pre) if alpha else left_fun(pre)
+
+    return post
 
 def rank(left: str|list[tuple], right: arr.Array, alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
@@ -468,6 +466,7 @@ def rank(left: str|list[tuple], right: arr.Array, alpha: Optional[arr.Array], om
     https://help.dyalog.com/latest/index.htm#Language/Primitive%20Operators/Rank.htm
     https://xpqz.github.io/learnapl/rank.html
     https://xpqz.github.io/cultivations/Rank.html
+    https://wiki.nars2000.org/index.php?title=Rank
     https://dl.acm.org/doi/pdf/10.1145/55626.55632
 
     Note that the right operand is always an integer scalar or vector of two elements, 
@@ -933,24 +932,15 @@ class Voc:
         '⎕UCS': (mpervade(ucs),                       None),
     }
 
-    # ops: dict[str, Operator] = {
-    #     #-------------Implem--------Derived-isa--Self-isa-----L-oper-isa---R-oper-isa
-    #     '/': Operator(reduce,       Arity.MONAD, Arity.MONAD, Arity.DYAD,  None),
-    #     '⌿': Operator(reduce_first, Arity.MONAD, Arity.MONAD, Arity.DYAD,  None),
-    #     '¨': Operator(each,         Arity.MONAD, Arity.MONAD, Arity.MONAD, None),
-    #     '⍨': Operator(commute,      Arity.DYAD,  Arity.MONAD, Arity.DYAD,  None),
-    #     '⍥': Operator(over,         Arity.DYAD,  Arity.DYAD,  Arity.DYAD,  Arity.MONAD),
-    #     '⍤': Operator(rank,         Arity.AMBIV, Arity.DYAD,  Arity.AMBIV, Arity.MONAD)
-    # }
-
     ops: dict[str, Operator] = {
-        #-------------Implem--------Derived-isa--Self-isa-----L-oper-isa--R-oper-isa
-        '/': Operator(reduce,       Arity.MONAD, Arity.MONAD, OP_DYAD,    None),
-        '⌿': Operator(reduce_first, Arity.MONAD, Arity.MONAD, OP_DYAD,    None),
-        '¨': Operator(each,         Arity.MONAD, Arity.MONAD, OP_MONAD,   None),
-        '⍨': Operator(commute,      Arity.DYAD,  Arity.MONAD, OP_DYAD,    None),
-        '⍥': Operator(over,         Arity.DYAD,  Arity.DYAD,  OP_DYAD,    OP_MONAD),
-        '⍤': Operator(rank,         Arity.AMBIV, Arity.DYAD,  OP_AMBIV,   OP_ARRAY)
+        #-------------Implem--------Derived-isa--Self-isa-----L-oper-isa--------------------------R-oper-isa
+        '/': Operator(reduce,       Arity.MONAD, Arity.MONAD, OperandType.DYAD,                   None),
+        '⌿': Operator(reduce_first, Arity.MONAD, Arity.MONAD, OperandType.DYAD,                   None),
+        '¨': Operator(each,         Arity.MONAD, Arity.MONAD, OperandType.MONAD,                  None),
+        '⍨': Operator(commute,      Arity.DYAD,  Arity.MONAD, OperandType.DYAD,                   None),
+        '⍥': Operator(over,         Arity.DYAD,  Arity.DYAD,  OperandType.DYAD,                   OperandType.MONAD),
+        '⍤': Operator(rank,         Arity.AMBIV, Arity.DYAD,  OperandType.MONAD|OperandType.DYAD, OperandType.ARRAY),
+        '⍣': Operator(power,        Arity.MONAD, Arity.DYAD,  OperandType.MONAD|OperandType.DYAD, OperandType.ARRAY|OperandType.DYAD),
     }
 
     @classmethod

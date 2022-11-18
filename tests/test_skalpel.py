@@ -5,7 +5,7 @@ import pytest
 from apl.errors import DomainError, LengthError, RankError
 import apl.arr as arr
 from apl.parser import Parser
-from apl.skalpel import each, pervade, mpervade, reduce_first, run, TYPE, encode, decode, bool_not, rank
+from apl.skalpel import each, pervade, mpervade, reduce_first, run, TYPE, encode, decode, bool_not, rank, power
 from apl.stack import Stack
 
 def run_code(src):
@@ -284,6 +284,50 @@ class TestReduce:
     def test_reduce_first(self):
         r = reduce_first('+', None, None, arr.Array([2, 2], [1, 2, 3, 4]), None, None)
         assert arr.match(r, arr.V([4, 6]))
+
+class TestPower:
+    def test_power_for_loop(self):
+        """
+        1 (+⍣5) 0     
+    
+        5
+        """
+        alpha = arr.S(1)
+        omega = arr.S(0)
+        count = arr.S(5)
+        total = power('+', count, alpha, omega, {}, Stack())
+        expected = arr.S(5)
+
+        assert arr.match(total, expected)
+
+    def test_power_split_twice(self):
+        """
+        ⊢cube←2 2 2⍴⎕a
+        ┌┌→─┐
+        ↓↓AB│
+        ││CD│
+        ││  │
+        ││EF│
+        ││GH│
+        └└──┘
+        (↓⍣2) cube
+        ┌→────────────────────────────┐
+        │ ┌→──────────┐ ┌→──────────┐ │
+        │ │ ┌→─┐ ┌→─┐ │ │ ┌→─┐ ┌→─┐ │ │
+        │ │ │AB│ │CD│ │ │ │EF│ │GH│ │ │
+        │ │ └──┘ └──┘ │ │ └──┘ └──┘ │ │
+        │ └∊──────────┘ └∊──────────┘ │
+        └∊────────────────────────────┘
+        """
+        cube = arr.Array([2, 2, 2], list('ABCDEFGH'))
+        count = arr.S(2)
+        split2 = power('↓', count, None, cube, {}, Stack())
+        expected = arr.V([
+            arr.V([arr.V(['A', 'B']), arr.V(['C', 'D'])]), 
+            arr.V([arr.V(['E', 'F']), arr.V(['G', 'H'])])
+        ])
+
+        assert arr.match(split2, expected)
 
 class TestDecode:
     def test_decode_left_scalar(self):
@@ -641,6 +685,15 @@ class TestDfn:
         assert arr.match(result.payload, arr.S(2))
 
 class TestOperator:
+    def test_dfn_reduce(self):
+        """
+        {⍺+⍵}/1 2
+        3
+        """
+        src = "{⍺+⍵}/1 2"
+        result = run_code(src)
+        assert arr.match(result.payload, arr.S(3))
+
     def test_each_primitive(self):
         src = '≢¨(1 2 3)(1 2)(1 2 3 4)'
         result = run_code(src)
