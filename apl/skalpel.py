@@ -4,6 +4,8 @@ from enum import auto, Enum, Flag
 import itertools
 import math
 import operator
+import random
+import secrets
 from string import ascii_letters
 from typing import Any, Callable, Optional, TypeAlias
 
@@ -877,6 +879,21 @@ def ceiling(o: Any) -> Any:
         return math.ceil(o)
     raise DomainError('DOMAIN ERROR')
 
+def roll(o: int) -> arr.Array:
+    if type(o) != int:
+        raise DomainError('DOMAIN ERROR: expected simple integer')
+    if o == 0:
+        return arr.S(random.random())
+    return arr.S(secrets.randbelow(o+1))
+
+def deal(alpha: arr.Array, omega: arr.Array) -> arr.Array:
+    if not omega.issimple() or type(omega.data[0]) != int:
+        raise LengthError('LENGTH ERROR')
+    if (alpha.issimple() or alpha.shape == [1, 1]) and type(alpha.data[0]) == int:
+        return arr.V(random.sample(range(omega.data[0]), alpha.data[0]))
+    else:
+        raise LengthError('LENGTH ERROR') 
+
 class Voc:
     """
     Voc is the global vocabulary of built-in arrays, functions and operators. This class should not
@@ -895,6 +912,7 @@ class Voc:
         '↓': (lambda o: o.split(),                    lambda a, o: o.drop(a)),
         '⍪':  (lambda o: o.table(),                   lambda a, o: a.laminate(o)),
         '~': (bool_not,                               lambda a, o: a.without(o)),
+        '?': (mpervade(roll),                         deal),
         '⍋': (lambda o: arr.V(o.grade()),             None),
         '⍒': (lambda o: arr.V(o.grade(reverse=True)), None),
         '⊤': (None,                                   encode),
