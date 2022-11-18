@@ -1,7 +1,7 @@
 from enum import Enum, auto
 from typing import Optional, TypeAlias
 
-from apl.errors import ArityError, EmitError
+from apl.errors import ArityError, EmitError, DomainError
 from apl.tokeniser import Token
 from apl.skalpel import Arity, INSTR, OperandType, Voc
 
@@ -26,6 +26,7 @@ class NodeType(Enum):
 NodeList: TypeAlias = list['Node'] # type: ignore
 
 CALLABLE = {NodeType.FUN, NodeType.MOP, NodeType.DOP, NodeType.DFN, NodeType.FREF}
+DATALIKE = {NodeType.ID, NodeType.ARG, NodeType.VECTOR, NodeType.CHARVEC, NodeType.SCALAR, NodeType.SYSTEM}
 
 class Node:
     code: list[tuple] = []
@@ -137,28 +138,80 @@ class Node:
 
         if self.kind == NodeType.DOP:
             assert op.right
-            if op.right.kind == OperandType.ARRAY:
-                self.children[1].emit()
-            else:
-                if op.right.arity == Arity.MONAD:
-                    right = self.children[1].monadic_function()
+            if self.children[1].kind in DATALIKE:
+                if OperandType.ARRAY in op.right:
+                    self.children[1].emit()
                 else:
+                    raise DomainError('DOMAIN ERROR: right operand must be a function')
+            else:
+                # Right is a callable, not array
+                if OperandType.MONAD in op.right and OperandType.DYAD not in op.right: # Right must be monadic, according to spec
+                    right = self.children[1].monadic_function() # Note: can return None
+                else: # We assume(?) that the right operand's arity must be set in the spec 
                     right = self.children[1].dyadic_function()
-                if right:        
+                if right:
                     Node.code.append((INSTR.fun, right))
 
-        if op.left.kind == OperandType.ARRAY:
-            self.children[0].emit()
-        else:
-            if op.left.arity == Arity.MONAD:
-                left = self.children[0].monadic_function()
+        if self.children[0].kind in DATALIKE:
+            if OperandType.ARRAY in op.left:
+                self.children[0].emit()
             else:
-                left = self.children[0].dyadic_function()
+                raise DomainError('DOMAIN ERROR: left operand must be a function')
+        else:
+            if OperandType.MONAD in op.left and OperandType.DYAD not in op.left: # Left must be mondadic, according to spec
+                left = self.children[0].monadic_function()
+            else: 
+                # The left operand can be ambivalent, e.g. 
+                #        ⊂⍤1   ⊢ B
+                #      A +⍤1 2 ⊢ B
+                if (
+                    OperandType.DYAD in op.left and OperandType.MONAD not in op.left or # Strictly dyadic
+                    op.derives == Arity.DYAD # Left ambiv, but operator derives dyadic
+                ):
+                    left = self.children[0].dyadic_function() # Note: can return None
+                else:
+                    left = self.children[0].monadic_function() # Left ambiv, but operator derives monadic
 
-            if left:  # Note: for in-line dfns we already have the dfn on the stack
+            # Note: for in-line dfns we already have the dfn on the stack
+            if left:
                 Node.code.append((INSTR.fun, left))
 
         return op_name
+
+    # def _derived(self, arities: set[Arity]) -> str: 
+    #     op_name = self._mttok()
+    #     op = Voc.get_op(op_name)
+
+    #     if not self.children:
+    #         raise EmitError('EMIT ERROR: node has no children')
+
+    #     if op.derives not in arities:
+    #         raise ArityError(f"ARITY ERROR: operator '{op_name}' does not derive function of the expected arity")
+
+    #     if self.kind == NodeType.DOP:
+    #         assert op.right
+    #         if op.right.kind == OperandType.ARRAY:
+    #             self.children[1].emit()
+    #         else:
+    #             if op.right.arity == Arity.MONAD:
+    #                 right = self.children[1].monadic_function()
+    #             else:
+    #                 right = self.children[1].dyadic_function()
+    #             if right:        
+    #                 Node.code.append((INSTR.fun, right))
+
+    #     if op.left.kind == OperandType.ARRAY:
+    #         self.children[0].emit()
+    #     else:
+    #         if op.left.arity == Arity.MONAD:
+    #             left = self.children[0].monadic_function()
+    #         else:
+    #             left = self.children[0].dyadic_function()
+
+    #         if left:  # Note: for in-line dfns we already have the dfn on the stack
+    #             Node.code.append((INSTR.fun, left))
+
+    #     return op_name
 
     def emit_monadic_call(self) -> None:
         if not self.children:
