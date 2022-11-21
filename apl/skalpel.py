@@ -1,4 +1,5 @@
 import cmath
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import auto, Enum, Flag
 import itertools
@@ -296,7 +297,9 @@ def pervade(f: Callable, direct: bool=False) -> Callable:
 
     return pervaded
 
-def _make_operand(oper: str|list[tuple], arity: Arity, env:dict[str, Value], stack: Stack) -> Callable:
+def _make_operand(oper: str|list[tuple]|Callable, arity: Arity, env:dict[str, Value], stack: Stack) -> Callable:
+    if callable(oper):
+        return oper
     if type(oper) == str:
         if Voc.has_builtin(oper): # built-in primitive, e.g ⌊
             return Voc.get_fn(oper, arity)
@@ -355,12 +358,8 @@ def each(left: str|list[tuple], right: Optional[str], alpha: Optional[Any],  ome
     assert isinstance(omega, arr.Array)
 
     fun = _make_operand(left, Arity.MONAD, env, stack)
-
-    d = [fun(o) for o in omega.data] # apply left operand to each element
-    if all(a.issimple() for a in d): # can we squeeze out any unnecessary nesting?
-        return arr.Array(omega.shape, [e.data[0] for e in d])
-
-    return arr.Array(omega.shape, d)
+    d = [fun(arr.enclose_if_simple(o)) for o in omega.data] # apply left operand to each element
+    return arr.Array(omega.shape, deepcopy(d))
 
 def reduce(left: str|list[tuple], right: Optional[Any], alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
@@ -389,6 +388,91 @@ def reduce_first(left: str|list[tuple], right: Optional[Any], alpha: Optional[ar
     fun = _make_operand(left, Arity.DYAD, env, stack)
 
     return omega.foldr(operand=fun, axis=0)
+
+def amend(left: str|list[tuple]|arr.Array|Callable, right: str|list[tuple]|arr.Array|Callable, alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
+    """
+    Amend - dyadic operator @ deriving ambivalent, returning a copy, whilst modifying elements at 
+    specific positions in an array. 
+    
+    If an alpha is given, it's implicitly bound to the left operand function, so that
+
+        ⍺ (L@R) ⍵
+        
+    is equivalent to 
+    
+        (⍺∘L@R) ⍵
+
+    Both operands can be either functions or arrays. 
+    
+    For the right operand, if it's a function, it needs to return a Boolean array of the same 
+    shape as ⍵, with ones in the positions to be modified. If it's an array, its major cells 
+    represent the coordinates of ⍵ to modify.
+
+    For the left operand, if it's a function, it is applied monadically to a vector of values to
+    modify, and thus should return an array of the same shape as its right argument. If it's an
+    array, it must either have same shape as the array whose major cells are the selected cells 
+    from ⍵, or a single scalar which will then be used as the value for all selected cells.
+
+    https://aplwiki.com/wiki/At
+    https://help.dyalog.com/latest/index.htm#Language/Primitive%20Operators/At.htm
+    https://xpqz.github.io/learnapl/at.html
+    https://xpqz.github.io/cultivations/Operators.html#at
+
+    (1 2 3@4 5 6)7 5 4 10 3 6 9 2 1 8 ⍝ Straight replacement
+    ┌→───────────────────┐
+    │7 5 4 10 1 2 3 2 1 8│
+    └~───────────────────┘
+    
+    (0@2 4) 1 2 3 4 5                 ⍝ Scalar extension
+    ┌→────────┐
+    │1 2 0 4 0│
+    └~────────┘
+
+    10 (×@2 4) 1 2 3 4 5              ⍝ Left is function
+    ┌→──────────┐
+    │1 2 30 4 50│
+    └~──────────┘
+
+    '*'@(2∘|) 1 2 3 4 5               ⍝ Right is function (returning Bool array)
+    ┌→────────┐
+    │* 2 * 4 *│
+    └+────────┘
+
+    10 (×@(≤∘3)) 3 1 4 1 5            ⍝ Left and right functions
+    ┌→───────────┐
+    │30 10 4 10 5│
+    └~───────────┘
+    
+    ⌽@(2∘|) 1 2 3 4 5                 ⍝ Rotate sub-array
+    ┌→────────┐
+    │5 2 3 4 1│
+    └~────────┘
+
+    """
+    if not isinstance(right, arr.Array):
+        selector = _make_operand(right, Arity.MONAD, env, stack)
+        indices = selector(omega).where()
+    else: 
+        indices = right
+
+    selected = omega.at(indices)
+
+    if not isinstance(left, arr.Array):
+        val = _make_operand(left, Arity.DYAD, env, stack) if alpha else _make_operand(left, Arity.MONAD, env, stack)
+        values = val(alpha, selected) if alpha else val(selected)
+    else:
+        if not left.shape: # Extend scalar
+            values = arr.V([deepcopy(left.data[0]) for _ in range(selected.bound)])
+        else:
+            values = left
+
+    if selected.shape != values.shape:
+        raise LengthError('LENGTH ERROR')
+
+    result = deepcopy(omega)
+    result.mutate(indices, values)
+
+    return result
 
 def power(left: str|list[tuple], right: str|list[tuple]|arr.Array, alpha: Optional[arr.Array], omega: arr.Array, env:dict[str, Value], stack:Stack) -> arr.Array:
     """
@@ -959,6 +1043,7 @@ class Voc:
         '⍥': Operator(over,         Arity.DYAD,  Arity.DYAD,  OperandType.DYAD,                   OperandType.MONAD),
         '⍤': Operator(rank,         Arity.AMBIV, Arity.DYAD,  OperandType.MONAD|OperandType.DYAD, OperandType.ARRAY),
         '⍣': Operator(power,        Arity.MONAD, Arity.DYAD,  OperandType.MONAD|OperandType.DYAD, OperandType.ARRAY|OperandType.DYAD),
+        '@': Operator(amend,        Arity.AMBIV, Arity.DYAD,  OperandType.ARRAY|OperandType.DYAD, OperandType.ARRAY|OperandType.MONAD),
     }
 
     @classmethod

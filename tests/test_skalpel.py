@@ -5,7 +5,7 @@ import pytest
 from apl.errors import DomainError, LengthError, RankError
 import apl.arr as arr
 from apl.parser import Parser
-from apl.skalpel import each, pervade, mpervade, reduce_first, run, TYPE, encode, decode, bool_not, rank, power
+from apl.skalpel import each, pervade, mpervade, reduce_first, run, TYPE, encode, decode, bool_not, rank, power, amend
 from apl.stack import Stack
 
 def run_code(src):
@@ -329,6 +329,71 @@ class TestPower:
 
         assert arr.match(split2, expected)
 
+class TestAmend:
+    def test_straight_replacement(self):
+        """
+        (1 2 3@4 5 6)7 5 4 10 3 6 9 2 1 8 ⍝ Straight replacement
+        ┌→───────────────────┐
+        │7 5 4 10 1 2 3 2 1 8│
+        └~───────────────────┘
+        """
+        left = arr.V([1, 2, 3])
+        right = arr.V([4, 5, 6])
+        omega = arr.V([7, 5, 4, 10, 3, 6, 9, 2, 1, 8])
+        amended = amend(left, right, None, omega, {}, Stack())
+        expected = arr.V([7, 5, 4, 10, 1, 2, 3, 2, 1, 8])
+        assert arr.match(amended, expected)
+
+    def test_scalar_extension(self):
+        """    
+        (0@2 4) 1 2 3 4 5 ⍝ Scalar extension
+        ┌→────────┐
+        │1 2 0 4 0│
+        └~────────┘
+
+
+
+    10 (×@(≤∘3)) 3 1 4 1 5            ⍝ Left and right functions
+    ┌→───────────┐
+    │30 10 4 10 5│
+    └~───────────┘
+        """
+        left = arr.S(0)
+        right = arr.V([2, 4])
+        omega = arr.V([1, 2, 3, 4, 5])
+        amended = amend(left, right, None, omega, {}, Stack())
+        expected = arr.V([1, 2, 0, 4, 0])
+        assert arr.match(amended, expected)
+
+    def test_left_fun(self):
+        """    
+        10 (×@2 4) 1 2 3 4 5 ⍝ Left is function
+        ┌→──────────┐
+        │1 2 30 4 50│
+        └~──────────┘
+        """
+        alpha = arr.S(10)
+        right = arr.V([2, 4])
+        omega = arr.V([1, 2, 3, 4, 5])
+        amended = amend('×', right, alpha, omega, {}, Stack())
+        expected = arr.V([1, 2, 30, 4, 50])
+        assert arr.match(amended, expected)
+
+    def test_right_fun(self):
+        """    
+        '*'@(2∘|) 1 2 3 4 5 ⍝ Right is function (returning Bool array)
+        ┌→────────┐
+        │* 2 * 4 *│
+        └+────────┘
+        """
+        alpha = arr.S(10)
+        right = mpervade(lambda w: w%2)
+        omega = arr.V([1, 2, 3, 4, 5])
+        left = arr.S('*')
+        amended = amend(left, right, None, omega, {}, Stack())
+        expected = arr.V(['*', 2, '*', 4, '*'])
+        assert arr.match(amended, expected)
+
 class TestDecode:
     def test_decode_left_scalar(self):
         """
@@ -595,6 +660,20 @@ class TestEach:
         a = arr.V([arr.V([1, 0]), arr.V([1, 0, 1]), arr.V([1, 0, 1, 0])])
         b = each('≢', None, None, a, None, None)
         assert arr.match(b, arr.V([2, 3, 4]))
+
+    def test_each2(self):
+        """
+        ⍳¨1 2 3 4 5
+        ┌→────────────────────────────────────────┐
+        │ ┌→┐ ┌→──┐ ┌→────┐ ┌→──────┐ ┌→────────┐ │
+        │ │0│ │0 1│ │0 1 2│ │0 1 2 3│ │0 1 2 3 4│ │
+        │ └~┘ └~──┘ └~────┘ └~──────┘ └~────────┘ │
+        └∊────────────────────────────────────────┘
+        """
+        a = arr.V([1, 2, 3, 4, 5])
+        b = each('⍳', None, None, a, None, None)
+        expected = arr.V([arr.V([0]), arr.V([0, 1]), arr.V([0, 1, 2]), arr.V([0, 1, 2, 3]), arr.V([0, 1, 2, 3, 4])])
+        assert arr.match(b, expected)
 
 class TestRun:
     def test_arith(self):
